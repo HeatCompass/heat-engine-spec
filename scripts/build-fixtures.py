@@ -46,15 +46,16 @@ CASES = [
     ("stull-table-T0-RH95",    "stull-2011",              0.0,  95.0, 0.10,  "Freezing fog conditions."),
     ("stull-table-T-10-RH80",  "stull-2011",            -10.0,  80.0, 0.15,  "Cold humid, near lower validity bound."),
     ("stull-table-T45-RH30",   "stull-2011",             45.0,  30.0, 0.15,  "Extreme heat arid, near upper validity bound."),
-    # --- Boundary cases tied to USMC flag transitions (wet-bulb in F)
-    ("boundary-just-under-white-green", "stull-2011-cross-check", 26.55, 50.0, 0.30, "Wet-bulb near 79.99 °F (white/green boundary)."),
-    ("boundary-just-at-white-green",    "stull-2011-cross-check", 26.65, 50.0, 0.30, "Wet-bulb near 80.00 °F."),
-    ("boundary-just-under-green-yellow","stull-2011-cross-check", 29.40, 50.0, 0.30, "Wet-bulb near 84.99 °F (green/yellow boundary)."),
-    ("boundary-just-at-green-yellow",   "stull-2011-cross-check", 29.50, 50.0, 0.30, "Wet-bulb near 85.10 °F."),
-    ("boundary-just-under-yellow-red",  "stull-2011-cross-check", 31.10, 50.0, 0.30, "Wet-bulb near 87.98 °F (yellow/red boundary)."),
-    ("boundary-just-at-yellow-red",     "stull-2011-cross-check", 31.20, 50.0, 0.30, "Wet-bulb near 88.16 °F."),
-    ("boundary-just-under-red-black",   "stull-2011-cross-check", 32.15, 50.0, 0.30, "Wet-bulb near 89.87 °F (red/black boundary)."),
-    ("boundary-just-at-red-black",      "stull-2011-cross-check", 32.25, 50.0, 0.30, "Wet-bulb near 90.05 °F."),
+    # --- Boundary cases tied to USMC flag transitions in wet-bulb-F space.
+    # T values chosen so the resulting wet-bulb at RH=50% straddles each flag boundary.
+    ("boundary-just-under-white-green", "stull-2011-cross-check", 35.05, 50.0, 0.30, "Dry-bulb 35.05 °C at RH=50% → wet-bulb ~79.95 °F (just under white/green)."),
+    ("boundary-just-at-white-green",    "stull-2011-cross-check", 35.10, 50.0, 0.30, "Dry-bulb 35.10 °C at RH=50% → wet-bulb ~80.03 °F (just over white/green)."),
+    ("boundary-just-under-green-yellow","stull-2011-cross-check", 38.28, 50.0, 0.30, "Dry-bulb 38.28 °C at RH=50% → wet-bulb ~84.95 °F (just under green/yellow)."),
+    ("boundary-just-at-green-yellow",   "stull-2011-cross-check", 38.34, 50.0, 0.30, "Dry-bulb 38.34 °C at RH=50% → wet-bulb ~85.04 °F (just over green/yellow)."),
+    ("boundary-just-under-yellow-red",  "stull-2011-cross-check", 40.22, 50.0, 0.30, "Dry-bulb 40.22 °C at RH=50% → wet-bulb ~87.95 °F (just under yellow/red)."),
+    ("boundary-just-at-yellow-red",     "stull-2011-cross-check", 40.28, 50.0, 0.30, "Dry-bulb 40.28 °C at RH=50% → wet-bulb ~88.04 °F (just over yellow/red)."),
+    ("boundary-just-under-red-black",   "stull-2011-cross-check", 41.52, 50.0, 0.30, "Dry-bulb 41.52 °C at RH=50% → wet-bulb ~89.96 °F (just under red/black)."),
+    ("boundary-just-at-red-black",      "stull-2011-cross-check", 41.58, 50.0, 0.30, "Dry-bulb 41.58 °C at RH=50% → wet-bulb ~90.05 °F (just over red/black)."),
     # --- Edge cases at validity bounds
     ("edge-low-rh-5",      "stull-2011-cross-check", 30.0,   5.0, 0.30,  "Lowest allowed RH (5%); evaporation maximum."),
     ("edge-low-rh-10",     "stull-2011-cross-check", 35.0,  10.0, 0.30,  "Arid hot case."),
