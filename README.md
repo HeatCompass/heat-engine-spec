@@ -28,3 +28,22 @@ New fixture additions or tolerance widening = PATCH bump.
 Schema field changes pre-1.0 = MINOR bump. Post-1.0 = MAJOR.
 
 See `docs/superpowers/specs/2026-05-25-heat-engine-spec-design.md` in `HeatCompass/console` for full design.
+
+## Publishing (operator-only)
+
+Two secrets must be set on the repo before tagging a release:
+
+- `NPM_TOKEN` — automation token from `@heatcompass` npm org. Generate via
+  https://www.npmjs.com/settings/heatcompass/tokens, type "Automation".
+- `PUB_CREDENTIALS` — contents of `~/.config/dart/pub-credentials.json` from a
+  `dart pub login` session under the verified publisher. Save raw JSON as the
+  secret value.
+
+Tagging:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow then publishes both packages.

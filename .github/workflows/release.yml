@@ -1,0 +1,40 @@
+name: heat-engine-spec release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  npm-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install + build + publish
+        working-directory: packages/spec-types-ts
+        run: |
+          npm ci
+          npm run build
+          npm publish --access restricted
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  pub-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Sync fixtures + publish to pub.dev
+        working-directory: packages/spec-types-dart
+        run: |
+          dart run tool/sync_fixtures.dart
+          dart pub get
+          dart pub publish --force
+        env:
+          PUB_CREDENTIALS: ${{ secrets.PUB_CREDENTIALS }}
