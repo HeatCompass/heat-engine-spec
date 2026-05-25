@@ -1,0 +1,9 @@
+node_modules/
+.pub-cache/
+.dart_tool/
+dist/
+*.log
+.DS_Store
+.env
+.env.local
+packages/spec-types-ts/src/generated/
