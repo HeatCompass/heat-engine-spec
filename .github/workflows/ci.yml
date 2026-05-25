@@ -1,0 +1,55 @@
+name: heat-engine-spec CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate-spec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Set up Python (for build-fixtures.py determinism check)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate JSON Schemas + fixture headers + source_ref linter
+        run: ./scripts/validate-fixtures.sh
+
+      - name: Verify build-fixtures.py output matches committed CSV
+        run: |
+          python3 scripts/build-fixtures.py
+          git diff --exit-code spec/tier1-foundation/wet-bulb.fixtures.csv \
+            || (echo "build-fixtures.py output diverges from committed CSV" && exit 1)
+
+      - name: Verify generate-types.sh output matches committed types
+        run: |
+          ./scripts/generate-types.sh
+          git diff --exit-code packages/spec-types-ts/src/generated/ \
+            || (echo "generate-types.sh output diverges from committed types" && exit 1)
+
+      - name: Install TS deps + run tests
+        working-directory: packages/spec-types-ts
+        run: |
+          npm ci
+          npm test
+
+      - name: Install Dart deps + run tests
+        working-directory: packages/spec-types-dart
+        run: |
+          dart run tool/sync_fixtures.dart
+          dart pub get
+          dart test
