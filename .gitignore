@@ -1,6 +1,10 @@
 node_modules/
-.pub-cache/
 .dart_tool/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
 dist/
 *.log
 .DS_Store
