@@ -27,16 +27,15 @@ String _serialize(Object? v) {
     return v.toString();
   }
   if (v is List) {
-    return '[' + v.map(_serialize).join(',') + ']';
+    return '[${v.map(_serialize).join(',')}]';
   }
   if (v is Map) {
     final entries = v.entries.toList()
       ..sort((a, b) => (a.key as String).compareTo(b.key as String));
-    return '{' +
-        entries
-            .map((e) => _encodeString(e.key as String) + ':' + _serialize(e.value))
-            .join(',') +
-        '}';
+    final body = entries
+        .map((e) => '${_encodeString(e.key as String)}:${_serialize(e.value)}')
+        .join(',');
+    return '{$body}';
   }
   throw ArgumentError('canonicalJson: unsupported type ${v.runtimeType}');
 }

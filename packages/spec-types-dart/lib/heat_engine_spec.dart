@@ -1,7 +1,13 @@
 /// Public API for `heat_engine_spec`.
 ///
-/// Re-exports tier 1 types + fixture loaders. Consumers import this single file.
+/// Re-exports tier 1 types + fixture loaders + Approach B audit envelope.
+/// Consumers import this single file.
 library;
 
 export 'src/types.dart';
 export 'src/fixtures.dart';
+
+// Approach B audit envelope (added in v0.1.0 for the full pure-function core).
+export 'src/spec_version.dart';
+export 'src/canonical_json.dart';
+export 'src/audit.dart';
