@@ -11,9 +11,18 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "==> Validating JSON Schemas (ajv compile)"
+# For each schema, build a -r flag list of every *other* schema in the dir
+# so cross-file $refs (e.g., cascade-fixtures.schema.json → audit.schema.json)
+# resolve without colliding with the schema being compiled as the main `-s`.
 for schema in spec/tier1-foundation/*.schema.json; do
   echo "  - $schema"
-  npx --yes ajv-cli compile -s "$schema" --spec=draft2020 > /dev/null
+  REF_FLAGS=()
+  for other in spec/tier1-foundation/*.schema.json; do
+    if [[ "$other" != "$schema" ]]; then
+      REF_FLAGS+=(-r "$other")
+    fi
+  done
+  npx --yes ajv-cli compile -s "$schema" --spec=draft2020 "${REF_FLAGS[@]}" > /dev/null
 done
 
 echo "==> Validating fixture column headers"
