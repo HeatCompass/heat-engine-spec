@@ -22,3 +22,4 @@ export {
   celsiusToFahrenheit,
   type WetBulbResultPlus,
 } from './wetbulb.js';
+export { flagFromWetBulbF, flagFromWetBulbC } from './flag.js';
