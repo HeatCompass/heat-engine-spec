@@ -11,3 +11,6 @@ export 'src/fixtures.dart';
 export 'src/spec_version.dart';
 export 'src/canonical_json.dart';
 export 'src/audit.dart';
+
+// Module reference impls (Phase B onward).
+export 'src/wetbulb.dart';

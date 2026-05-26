@@ -13,3 +13,12 @@ export {
   type SpecReturn,
   type HttpAdapter,
 } from './audit.js';
+
+// Module reference impls (Phase B onward).
+export {
+  calculateWetBulb,
+  calculateWetBulbF,
+  fahrenheitToCelsius,
+  celsiusToFahrenheit,
+  type WetBulbResultPlus,
+} from './wetbulb.js';
