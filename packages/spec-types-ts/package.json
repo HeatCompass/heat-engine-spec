@@ -1,7 +1,7 @@
 {
   "name": "@heatcompass/heat-engine-spec",
   "version": "0.1.0",
-  "description": "TypeScript types + fixture loaders for the heat-engine-spec contract.",
+  "description": "TypeScript reference impl + types + fixture loaders for the heat-engine-spec contract (wet-bulb, USMC flag mapping, work/rest, weather cascade, verdict promotion).",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,7 +16,7 @@
     "fixtures"
   ],
   "scripts": {
-    "sync-fixtures": "node -e \"const fs=require('fs');for (const f of ['wet-bulb.fixtures.csv','flag-mapping.fixtures.csv']) fs.copyFileSync('../../spec/tier1-foundation/'+f,'./fixtures/'+f);\"",
+    "sync-fixtures": "node -e \"const fs=require('fs'),path=require('path');for (const f of ['wet-bulb.fixtures.csv','flag-mapping.fixtures.csv','refuge-break.fixtures.csv','verdict-promotion.fixtures.csv']) fs.copyFileSync('../../spec/tier1-foundation/'+f,'./fixtures/'+f);fs.mkdirSync('./fixtures/cascade-replay',{recursive:true});for (const f of fs.readdirSync('../../spec/tier1-foundation/cascade-replay').filter(n=>n.endsWith('.json'))) fs.copyFileSync('../../spec/tier1-foundation/cascade-replay/'+f,'./fixtures/cascade-replay/'+f);\"",
     "build": "npm run sync-fixtures && tsc",
     "pretest": "npm run sync-fixtures",
     "test": "vitest run",
@@ -32,7 +32,7 @@
     "vitest": "^3.0.0"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "repository": {
     "type": "git",

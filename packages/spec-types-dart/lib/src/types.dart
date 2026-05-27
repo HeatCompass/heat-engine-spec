@@ -80,6 +80,276 @@ class FlagMappingFixtureRow {
   final String notes;
 }
 
+/// Input to USMC 6200.1E §3.2 work/rest matrix lookup.
+class RefugeBreakInput {
+  const RefugeBreakInput({
+    required this.flag,
+    required this.acclimatized,
+    required this.workMinutesRequested,
+  });
+
+  final EnvironmentalFlag flag;
+  final bool acclimatized;
+  final int workMinutesRequested;
+}
+
+/// Prescribed work/rest interval per hour per USMC 6200.1E §3.2.
+class WorkRestInterval {
+  const WorkRestInterval({
+    required this.workMinutes,
+    required this.restMinutes,
+    required this.cyclesUntilReassessRequired,
+    required this.ceaseWork,
+  });
+
+  final int workMinutes;
+  final int restMinutes;
+  final int? cyclesUntilReassessRequired;
+  final bool ceaseWork;
+}
+
+/// One row of `refuge-break.fixtures.csv`.
+class RefugeBreakFixtureRow {
+  const RefugeBreakFixtureRow({
+    required this.id,
+    required this.sourceRef,
+    required this.flag,
+    required this.acclimatized,
+    required this.workMinutesRequested,
+    required this.expectedWorkMinutes,
+    required this.expectedRestMinutes,
+    required this.expectedCyclesUntilReassessRequired,
+    required this.expectedCeaseWork,
+    required this.notes,
+  });
+
+  final String id;
+  final String sourceRef;
+  final EnvironmentalFlag flag;
+  final bool acclimatized;
+  final int workMinutesRequested;
+  final int expectedWorkMinutes;
+  final int expectedRestMinutes;
+  final int? expectedCyclesUntilReassessRequired;
+  final bool expectedCeaseWork;
+  final String notes;
+}
+
+/// Verdict outcome of the promotion state machine.
+enum Verdict { go, delay, alternate }
+
+Verdict parseVerdict(String s) {
+  switch (s) {
+    case 'go':
+      return Verdict.go;
+    case 'delay':
+      return Verdict.delay;
+    case 'alternate':
+      return Verdict.alternate;
+    default:
+      throw ArgumentError('Unknown Verdict: "$s"');
+  }
+}
+
+/// Name of the promotion-matrix rule that fired for a given verdict
+/// invocation. Stable identifier (not localized).
+enum PromotionRule {
+  firstRunDefault,
+  noChange,
+  escalateToDelayOnRedOrBlack,
+  alternateAvailableAtBlack,
+  deescalateToGo,
+}
+
+String promotionRuleToWire(PromotionRule r) {
+  switch (r) {
+    case PromotionRule.firstRunDefault:
+      return 'FIRST_RUN_DEFAULT';
+    case PromotionRule.noChange:
+      return 'NO_CHANGE';
+    case PromotionRule.escalateToDelayOnRedOrBlack:
+      return 'ESCALATE_TO_DELAY_ON_RED_OR_BLACK';
+    case PromotionRule.alternateAvailableAtBlack:
+      return 'ALTERNATE_AVAILABLE_AT_BLACK';
+    case PromotionRule.deescalateToGo:
+      return 'DEESCALATE_TO_GO';
+  }
+}
+
+PromotionRule parsePromotionRule(String s) {
+  switch (s) {
+    case 'FIRST_RUN_DEFAULT':
+      return PromotionRule.firstRunDefault;
+    case 'NO_CHANGE':
+      return PromotionRule.noChange;
+    case 'ESCALATE_TO_DELAY_ON_RED_OR_BLACK':
+      return PromotionRule.escalateToDelayOnRedOrBlack;
+    case 'ALTERNATE_AVAILABLE_AT_BLACK':
+      return PromotionRule.alternateAvailableAtBlack;
+    case 'DEESCALATE_TO_GO':
+      return PromotionRule.deescalateToGo;
+    default:
+      throw ArgumentError('Unknown PromotionRule: "$s"');
+  }
+}
+
+/// Input to the verdict promotion state machine.
+class VerdictInput {
+  const VerdictInput({
+    required this.priorVerdict,
+    required this.priorFlag,
+    required this.currentFlag,
+    required this.hasAlternateAvailable,
+  });
+
+  final Verdict? priorVerdict;
+  final EnvironmentalFlag? priorFlag;
+  final EnvironmentalFlag currentFlag;
+  final bool hasAlternateAvailable;
+}
+
+/// Result of the verdict promotion state machine.
+class VerdictResult {
+  const VerdictResult({
+    required this.verdict,
+    required this.changedFromPrior,
+    required this.promotionRule,
+  });
+
+  final Verdict verdict;
+  final bool changedFromPrior;
+  final PromotionRule promotionRule;
+}
+
+/// One row of `verdict-promotion.fixtures.csv`.
+class VerdictFixtureRow {
+  const VerdictFixtureRow({
+    required this.id,
+    required this.sourceRef,
+    required this.priorVerdict,
+    required this.priorFlag,
+    required this.currentFlag,
+    required this.hasAlternateAvailable,
+    required this.expectedVerdict,
+    required this.expectedChangedFromPrior,
+    required this.expectedPromotionRule,
+    required this.notes,
+  });
+
+  final String id;
+  final String sourceRef;
+  final Verdict? priorVerdict;
+  final EnvironmentalFlag? priorFlag;
+  final EnvironmentalFlag currentFlag;
+  final bool hasAlternateAvailable;
+  final Verdict expectedVerdict;
+  final bool expectedChangedFromPrior;
+  final PromotionRule expectedPromotionRule;
+  final String notes;
+}
+
+/// Which tier of the weather cascade produced a sample.
+enum WeatherSource { nws, openMeteo, simulated }
+
+String weatherSourceToWire(WeatherSource s) {
+  switch (s) {
+    case WeatherSource.nws:
+      return 'nws';
+    case WeatherSource.openMeteo:
+      return 'open-meteo';
+    case WeatherSource.simulated:
+      return 'simulated';
+  }
+}
+
+WeatherSource weatherSourceFromWire(String s) {
+  switch (s) {
+    case 'nws':
+      return WeatherSource.nws;
+    case 'open-meteo':
+      return WeatherSource.openMeteo;
+    case 'simulated':
+      return WeatherSource.simulated;
+    default:
+      throw ArgumentError('unknown weather source: $s');
+  }
+}
+
+/// Input to the weather-cascade fetcher.
+class CascadeRequest {
+  const CascadeRequest({
+    required this.lat,
+    required this.lng,
+    this.isoTimestamp,
+  });
+
+  final double lat;
+  final double lng;
+  final String? isoTimestamp;
+}
+
+/// One sample of weather conditions. `source` discloses which cascade tier
+/// produced it.
+class WeatherSample {
+  const WeatherSample({
+    required this.tempC,
+    required this.rhPercent,
+    required this.source,
+    this.windMps,
+  });
+
+  final double tempC;
+  final double rhPercent;
+  final double? windMps;
+  final WeatherSource source;
+}
+
+/// Result of the weather-cascade fetcher.
+class CascadeResult {
+  const CascadeResult({required this.sample});
+  final WeatherSample sample;
+}
+
+/// One replay HTTP response entry. Matched by `urlPattern` regex.
+class CascadeReplayResponse {
+  const CascadeReplayResponse({
+    required this.urlPattern,
+    required this.status,
+    this.bodyJson,
+    this.bodyText,
+    this.simulate,
+  });
+
+  final String urlPattern;
+  final int status;
+  final Object? bodyJson;
+  final String? bodyText;
+  final String? simulate; // 'timeout' if present
+}
+
+/// One row of a `cascade-replay/*.json` fixture file.
+class CascadeFixtureRow {
+  const CascadeFixtureRow({
+    required this.id,
+    required this.description,
+    required this.input,
+    required this.clockIso,
+    required this.responses,
+    required this.expectedResult,
+    required this.expectedAudit,
+    required this.fileName,
+  });
+
+  final String id;
+  final String description;
+  final CascadeRequest input;
+  final String clockIso;
+  final List<CascadeReplayResponse> responses;
+  final CascadeResult? expectedResult;
+  final Map<String, Object?> expectedAudit;
+  final String fileName;
+}
+
 EnvironmentalFlag parseEnvironmentalFlag(String s) {
   switch (s) {
     case 'white':

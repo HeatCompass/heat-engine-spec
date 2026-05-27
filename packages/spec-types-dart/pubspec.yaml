@@ -1,5 +1,5 @@
 name: heat_engine_spec
-description: Dart types + fixture loaders for the heat-engine-spec contract. Tier 1 covers wet-bulb (Stull 2011) + USMC 6200.1E flag mapping.
+description: Dart reference impl + types + fixture loaders for the heat-engine-spec contract. Tier 1 covers wet-bulb (Stull 2011), USMC 6200.1E flag mapping, work/rest, weather cascade, and verdict promotion.
 version: 0.1.0
 repository: https://github.com/HeatCompass/heat-engine-spec
 homepage: https://github.com/HeatCompass/heat-engine-spec
@@ -9,6 +9,7 @@ environment:
 
 dependencies:
   csv: ^6.0.0
+  http: ^1.2.0
 
 dev_dependencies:
   test: ^1.25.0

@@ -1,12 +1,17 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parse } from 'csv-parse/sync';
 import type {
   WetBulbFixtureRow,
   FlagMappingFixtureRow,
+  RefugeBreakFixtureRow,
+  VerdictFixtureRow,
+  CascadeFixtureRow,
   EnvironmentalFlag,
   HeatRiskLevelLabel,
+  Verdict,
+  PromotionRule,
 } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +43,76 @@ export function loadFlagMappingFixtures(): FlagMappingFixtureRow[] {
     wetBulbF: Number(r.wet_bulb_f),
     expectedFlag: r.expected_flag as EnvironmentalFlag,
     expectedFlagDartLabel: r.expected_flag_dart_label as HeatRiskLevelLabel,
+    notes: r.notes,
+  }));
+}
+
+export function loadRefugeBreakFixtures(): RefugeBreakFixtureRow[] {
+  const csv = readFileSync(resolve(FIXTURES_DIR, 'refuge-break.fixtures.csv'), 'utf-8');
+  const raw = parse(csv, { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+  return raw.map((r) => ({
+    id: r.id,
+    sourceRef: r.source_ref,
+    flag: r.flag as EnvironmentalFlag,
+    acclimatized: r.acclimatized === 'true',
+    workMinutesRequested: Number(r.work_minutes_requested),
+    expectedWorkMinutes: Number(r.expected_work_minutes),
+    expectedRestMinutes: Number(r.expected_rest_minutes),
+    expectedCyclesUntilReassessRequired:
+      r.expected_cycles_until_reassess_required === ''
+        ? null
+        : Number(r.expected_cycles_until_reassess_required),
+    expectedCeaseWork: r.expected_cease_work === 'true',
+    notes: r.notes,
+  }));
+}
+
+interface CascadeFixtureFile {
+  rows: Array<{
+    id: string;
+    description: string;
+    input: { lat: number; lng: number; isoTimestamp?: string };
+    ctx: { clock_iso: string; responses: CascadeFixtureRow['ctx']['responses'] };
+    expectedResult: CascadeFixtureRow['expectedResult'];
+    expectedAudit: Record<string, unknown>;
+  }>;
+}
+
+export function loadCascadeFixtures(): CascadeFixtureRow[] {
+  const dir = resolve(FIXTURES_DIR, 'cascade-replay');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
+  const out: CascadeFixtureRow[] = [];
+  for (const file of files) {
+    const raw = readFileSync(resolve(dir, file), 'utf-8');
+    const parsed = JSON.parse(raw) as CascadeFixtureFile;
+    for (const row of parsed.rows) {
+      out.push({
+        id: row.id,
+        description: row.description,
+        input: row.input,
+        ctx: row.ctx,
+        expectedResult: row.expectedResult,
+        expectedAudit: row.expectedAudit,
+        fileName: file,
+      });
+    }
+  }
+  return out;
+}
+
+export function loadVerdictFixtures(): VerdictFixtureRow[] {
+  const csv = readFileSync(resolve(FIXTURES_DIR, 'verdict-promotion.fixtures.csv'), 'utf-8');
+  const raw = parse(csv, { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+  return raw.map((r) => ({
+    id: r.id,
+    sourceRef: r.source_ref,
+    priorVerdict: r.prior_verdict === '' ? null : (r.prior_verdict as Verdict),
+    priorFlag: r.prior_flag === '' ? null : (r.prior_flag as EnvironmentalFlag),
+    currentFlag: r.current_flag as EnvironmentalFlag,
+    hasAlternateAvailable: r.has_alternate_available === 'true',
+    expectedVerdict: r.expected_verdict as Verdict,
+    expectedChangedFromPrior: r.expected_changed_from_prior === 'true',
+    expectedPromotionRule: r.expected_promotion_rule as PromotionRule,
     notes: r.notes,
   }));
 }
