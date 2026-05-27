@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use this spec, please cite both the underlying primary sources and this software."
+type: software
+title: "heat-engine-spec"
+abstract: "Shared heat-stress engine contract for HeatCompass Console (B2B) and the HeatCompass consumer Flutter app. Reference implementations in TypeScript and Dart with cross-language byte-equal audit records."
+authors:
+  - given-names: Craig
+    family-names: Merry
+repository-code: "https://github.com/HeatCompass/heat-engine-spec"
+license: MIT
+version: 0.1.0
+date-released: 2026-05-27
+references:
+  - type: article
+    authors:
+      - family-names: Stull
+        given-names: Roland
+    title: "Wet-Bulb Temperature from Relative Humidity and Air Temperature"
+    journal: "Journal of Applied Meteorology and Climatology"
+    volume: 50
+    year: 2011
+    start: 2267
+    end: 2269
+  - type: standard
+    title: "U.S. Marine Corps Order 6200.1E — Marine Corps Heat Injury Prevention Program"
+    institution: "United States Marine Corps"
+  - type: software
+    title: "National Weather Service api.weather.gov"
+    url: "https://www.weather.gov/documentation/services-web-api"
+  - type: software
+    title: "Open-Meteo Weather Forecast API"
+    url: "https://open-meteo.com/en/docs"

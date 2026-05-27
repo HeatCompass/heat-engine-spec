@@ -1,7 +1,7 @@
 {
   "name": "@heatcompass/heat-engine-spec",
   "version": "0.1.0",
-  "description": "TypeScript types + fixture loaders for the heat-engine-spec contract.",
+  "description": "TypeScript reference impl + types + fixture loaders for the heat-engine-spec contract (wet-bulb, USMC flag mapping, work/rest, weather cascade, verdict promotion).",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -32,7 +32,7 @@
     "vitest": "^3.0.0"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "repository": {
     "type": "git",
