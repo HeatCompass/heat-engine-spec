@@ -248,6 +248,108 @@ class VerdictFixtureRow {
   final String notes;
 }
 
+/// Which tier of the weather cascade produced a sample.
+enum WeatherSource { nws, openMeteo, simulated }
+
+String weatherSourceToWire(WeatherSource s) {
+  switch (s) {
+    case WeatherSource.nws:
+      return 'nws';
+    case WeatherSource.openMeteo:
+      return 'open-meteo';
+    case WeatherSource.simulated:
+      return 'simulated';
+  }
+}
+
+WeatherSource weatherSourceFromWire(String s) {
+  switch (s) {
+    case 'nws':
+      return WeatherSource.nws;
+    case 'open-meteo':
+      return WeatherSource.openMeteo;
+    case 'simulated':
+      return WeatherSource.simulated;
+    default:
+      throw ArgumentError('unknown weather source: $s');
+  }
+}
+
+/// Input to the weather-cascade fetcher.
+class CascadeRequest {
+  const CascadeRequest({
+    required this.lat,
+    required this.lng,
+    this.isoTimestamp,
+  });
+
+  final double lat;
+  final double lng;
+  final String? isoTimestamp;
+}
+
+/// One sample of weather conditions. `source` discloses which cascade tier
+/// produced it.
+class WeatherSample {
+  const WeatherSample({
+    required this.tempC,
+    required this.rhPercent,
+    required this.source,
+    this.windMps,
+  });
+
+  final double tempC;
+  final double rhPercent;
+  final double? windMps;
+  final WeatherSource source;
+}
+
+/// Result of the weather-cascade fetcher.
+class CascadeResult {
+  const CascadeResult({required this.sample});
+  final WeatherSample sample;
+}
+
+/// One replay HTTP response entry. Matched by `urlPattern` regex.
+class CascadeReplayResponse {
+  const CascadeReplayResponse({
+    required this.urlPattern,
+    required this.status,
+    this.bodyJson,
+    this.bodyText,
+    this.simulate,
+  });
+
+  final String urlPattern;
+  final int status;
+  final Object? bodyJson;
+  final String? bodyText;
+  final String? simulate; // 'timeout' if present
+}
+
+/// One row of a `cascade-replay/*.json` fixture file.
+class CascadeFixtureRow {
+  const CascadeFixtureRow({
+    required this.id,
+    required this.description,
+    required this.input,
+    required this.clockIso,
+    required this.responses,
+    required this.expectedResult,
+    required this.expectedAudit,
+    required this.fileName,
+  });
+
+  final String id;
+  final String description;
+  final CascadeRequest input;
+  final String clockIso;
+  final List<CascadeReplayResponse> responses;
+  final CascadeResult? expectedResult;
+  final Map<String, Object?> expectedAudit;
+  final String fileName;
+}
+
 EnvironmentalFlag parseEnvironmentalFlag(String s) {
   switch (s) {
     case 'white':

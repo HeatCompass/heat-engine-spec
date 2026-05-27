@@ -10,33 +10,7 @@
 // callsite.
 
 import 'spec_version.dart';
-import 'types.dart' show EnvironmentalFlag;
-
-enum WeatherSource { nws, openMeteo, simulated }
-
-String weatherSourceToWire(WeatherSource s) {
-  switch (s) {
-    case WeatherSource.nws:
-      return 'nws';
-    case WeatherSource.openMeteo:
-      return 'open-meteo';
-    case WeatherSource.simulated:
-      return 'simulated';
-  }
-}
-
-WeatherSource weatherSourceFromWire(String s) {
-  switch (s) {
-    case 'nws':
-      return WeatherSource.nws;
-    case 'open-meteo':
-      return WeatherSource.openMeteo;
-    case 'simulated':
-      return WeatherSource.simulated;
-    default:
-      throw ArgumentError('unknown weather source: $s');
-  }
-}
+import 'types.dart' show EnvironmentalFlag, WeatherSource, weatherSourceToWire;
 
 class SourceAttempt {
   final WeatherSource source;

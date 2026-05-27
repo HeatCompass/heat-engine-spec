@@ -63,6 +63,18 @@ if [[ "$ACTUAL_VP_HEADER" != "$EXPECTED_VP_HEADER" ]]; then
   exit 1
 fi
 
+echo "==> Validating cascade-replay JSON fixtures against cascade-fixtures.schema.json"
+if [[ -d spec/tier1-foundation/cascade-replay ]]; then
+  for f in spec/tier1-foundation/cascade-replay/*.json; do
+    [[ -f "$f" ]] || continue
+    echo "  - $f"
+    npx --yes ajv-cli validate \
+      -s spec/tier1-foundation/cascade-fixtures.schema.json \
+      -r spec/tier1-foundation/audit.schema.json \
+      -d "$f" --spec=draft2020 > /dev/null
+  done
+fi
+
 echo "==> Validating source_ref resolution"
 
 # Extract all defined refs from references.md (lines starting with `## `).

@@ -4,6 +4,7 @@ export {
   loadFlagMappingFixtures,
   loadRefugeBreakFixtures,
   loadVerdictFixtures,
+  loadCascadeFixtures,
 } from './fixtures.js';
 
 // Approach B audit envelope (added in v0.1.0 for the full pure-function core).
@@ -30,3 +31,4 @@ export {
 export { flagFromWetBulbF, flagFromWetBulbC } from './flag.js';
 export { workRestForFlag } from './refugeBreak.js';
 export { promoteVerdict } from './verdict.js';
+export { fetchWeatherCascade } from './cascade.js';

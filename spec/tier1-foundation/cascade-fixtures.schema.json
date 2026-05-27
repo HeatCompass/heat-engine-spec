@@ -126,11 +126,11 @@
       "properties": {
         "sample": {
           "type": "object",
-          "required": ["tempC", "rhPct", "source"],
+          "required": ["tempC", "rhPercent", "source"],
           "additionalProperties": false,
           "properties": {
             "tempC": { "type": "number" },
-            "rhPct": { "type": "number", "minimum": 0, "maximum": 100 },
+            "rhPercent": { "type": "number", "minimum": 0, "maximum": 100 },
             "windMps": { "type": "number", "minimum": 0 },
             "source": { "enum": ["nws", "open-meteo", "simulated"] }
           }

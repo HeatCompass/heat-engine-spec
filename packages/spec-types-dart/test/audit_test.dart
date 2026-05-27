@@ -2,6 +2,7 @@ import 'package:test/test.dart';
 import 'package:heat_engine_spec/src/audit.dart';
 import 'package:heat_engine_spec/src/canonical_json.dart';
 import 'package:heat_engine_spec/src/spec_version.dart';
+import 'package:heat_engine_spec/src/types.dart' show WeatherSource;
 
 DateTime fixedClock() => DateTime.utc(2026, 5, 26, 17, 0, 0, 0);
 

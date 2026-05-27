@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:csv/csv.dart';
 import 'types.dart';
@@ -102,6 +103,96 @@ List<RefugeBreakFixtureRow> loadRefugeBreakFixtures() {
       notes: r[idx['notes']!] as String,
     );
   }).toList(growable: false);
+}
+
+List<CascadeFixtureRow> loadCascadeFixtures() {
+  // Locate cascade-replay dir same way as _readBundledFixture but for a dir.
+  final libFile = Directory.current;
+  Directory? cascadeDir;
+  for (var dir = libFile; dir.path != dir.parent.path; dir = dir.parent) {
+    final candidate = File('${dir.path}/.dart_tool/package_config.json');
+    if (candidate.existsSync()) {
+      final cfgText = candidate.readAsStringSync();
+      final match = RegExp(
+        r'"name":\s*"heat_engine_spec"[^}]*"rootUri":\s*"([^"]+)"',
+      ).firstMatch(cfgText);
+      if (match != null) {
+        final root = Uri.parse(match.group(1)!);
+        final base = root.isAbsolute
+            ? root
+            : Uri.directory('${dir.path}/.dart_tool/').resolveUri(root);
+        final tryDir = Directory.fromUri(base.resolve('lib/fixtures/cascade-replay/'));
+        if (tryDir.existsSync()) {
+          cascadeDir = tryDir;
+          break;
+        }
+      }
+    }
+  }
+  if (cascadeDir == null) {
+    throw StateError(
+      'heat_engine_spec: could not locate bundled lib/fixtures/cascade-replay/ — '
+      'ensure heat_engine_spec is in dev_dependencies and `dart pub get` has run.',
+    );
+  }
+
+  final files = cascadeDir
+      .listSync()
+      .whereType<File>()
+      .where((f) => f.path.endsWith('.json'))
+      .toList()
+    ..sort((a, b) => a.path.compareTo(b.path));
+
+  final out = <CascadeFixtureRow>[];
+  for (final file in files) {
+    final name = file.uri.pathSegments.last;
+    final raw = file.readAsStringSync();
+    final parsed = jsonDecode(raw) as Map<String, Object?>;
+    final rows = parsed['rows'] as List<Object?>;
+    for (final row in rows) {
+      final r = row as Map<String, Object?>;
+      final input = r['input'] as Map<String, Object?>;
+      final ctx = r['ctx'] as Map<String, Object?>;
+      final responses = (ctx['responses'] as List<Object?>)
+          .cast<Map<String, Object?>>()
+          .map((rr) => CascadeReplayResponse(
+                urlPattern: rr['url_pattern'] as String,
+                status: rr['status'] as int,
+                bodyJson: rr['body_json'],
+                bodyText: rr['body_text'] as String?,
+                simulate: rr['simulate'] as String?,
+              ))
+          .toList(growable: false);
+      final expectedResultRaw = r['expectedResult'];
+      CascadeResult? expectedResult;
+      if (expectedResultRaw != null) {
+        final sm = (expectedResultRaw as Map<String, Object?>)['sample'] as Map<String, Object?>;
+        expectedResult = CascadeResult(
+          sample: WeatherSample(
+            tempC: (sm['tempC'] as num).toDouble(),
+            rhPercent: (sm['rhPercent'] as num).toDouble(),
+            windMps: sm['windMps'] == null ? null : (sm['windMps'] as num).toDouble(),
+            source: weatherSourceFromWire(sm['source'] as String),
+          ),
+        );
+      }
+      out.add(CascadeFixtureRow(
+        id: r['id'] as String,
+        description: r['description'] as String,
+        input: CascadeRequest(
+          lat: (input['lat'] as num).toDouble(),
+          lng: (input['lng'] as num).toDouble(),
+          isoTimestamp: input['isoTimestamp'] as String?,
+        ),
+        clockIso: ctx['clock_iso'] as String,
+        responses: responses,
+        expectedResult: expectedResult,
+        expectedAudit: r['expectedAudit'] as Map<String, Object?>,
+        fileName: name,
+      ));
+    }
+  }
+  return out;
 }
 
 List<VerdictFixtureRow> loadVerdictFixtures() {

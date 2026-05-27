@@ -89,3 +89,41 @@ export interface VerdictFixtureRow {
   expectedPromotionRule: PromotionRule;
   notes: string;
 }
+
+export interface CascadeRequest {
+  lat: number;
+  lng: number;
+  isoTimestamp?: string;
+}
+
+export interface WeatherSample {
+  tempC: number;
+  rhPercent: number;
+  windMps?: number;
+  source: 'nws' | 'open-meteo' | 'simulated';
+}
+
+export interface CascadeResult {
+  sample: WeatherSample;
+}
+
+export interface CascadeReplayResponse {
+  url_pattern: string;
+  status: number;
+  body_json?: unknown;
+  body_text?: string;
+  simulate?: 'timeout';
+}
+
+export interface CascadeFixtureRow {
+  id: string;
+  description: string;
+  input: CascadeRequest;
+  ctx: {
+    clock_iso: string;
+    responses: CascadeReplayResponse[];
+  };
+  expectedResult: CascadeResult | null;
+  expectedAudit: Record<string, unknown>;
+  fileName: string;
+}

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parse } from 'csv-parse/sync';
@@ -7,6 +7,7 @@ import type {
   FlagMappingFixtureRow,
   RefugeBreakFixtureRow,
   VerdictFixtureRow,
+  CascadeFixtureRow,
   EnvironmentalFlag,
   HeatRiskLevelLabel,
   Verdict,
@@ -64,6 +65,39 @@ export function loadRefugeBreakFixtures(): RefugeBreakFixtureRow[] {
     expectedCeaseWork: r.expected_cease_work === 'true',
     notes: r.notes,
   }));
+}
+
+interface CascadeFixtureFile {
+  rows: Array<{
+    id: string;
+    description: string;
+    input: { lat: number; lng: number; isoTimestamp?: string };
+    ctx: { clock_iso: string; responses: CascadeFixtureRow['ctx']['responses'] };
+    expectedResult: CascadeFixtureRow['expectedResult'];
+    expectedAudit: Record<string, unknown>;
+  }>;
+}
+
+export function loadCascadeFixtures(): CascadeFixtureRow[] {
+  const dir = resolve(FIXTURES_DIR, 'cascade-replay');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
+  const out: CascadeFixtureRow[] = [];
+  for (const file of files) {
+    const raw = readFileSync(resolve(dir, file), 'utf-8');
+    const parsed = JSON.parse(raw) as CascadeFixtureFile;
+    for (const row of parsed.rows) {
+      out.push({
+        id: row.id,
+        description: row.description,
+        input: row.input,
+        ctx: row.ctx,
+        expectedResult: row.expectedResult,
+        expectedAudit: row.expectedAudit,
+        fileName: file,
+      });
+    }
+  }
+  return out;
 }
 
 export function loadVerdictFixtures(): VerdictFixtureRow[] {
