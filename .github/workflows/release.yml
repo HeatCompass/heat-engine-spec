@@ -8,6 +8,7 @@ on:
 permissions:
   id-token: write   # required for pub.dev OIDC trusted publishing
   contents: write   # required for creating the GitHub Release
+  issues: write     # required for auto-filing the recovery issue on partial failure
 
 jobs:
   publish:
