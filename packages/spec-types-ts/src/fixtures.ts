@@ -6,8 +6,11 @@ import type {
   WetBulbFixtureRow,
   FlagMappingFixtureRow,
   RefugeBreakFixtureRow,
+  VerdictFixtureRow,
   EnvironmentalFlag,
   HeatRiskLevelLabel,
+  Verdict,
+  PromotionRule,
 } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -59,6 +62,23 @@ export function loadRefugeBreakFixtures(): RefugeBreakFixtureRow[] {
         ? null
         : Number(r.expected_cycles_until_reassess_required),
     expectedCeaseWork: r.expected_cease_work === 'true',
+    notes: r.notes,
+  }));
+}
+
+export function loadVerdictFixtures(): VerdictFixtureRow[] {
+  const csv = readFileSync(resolve(FIXTURES_DIR, 'verdict-promotion.fixtures.csv'), 'utf-8');
+  const raw = parse(csv, { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+  return raw.map((r) => ({
+    id: r.id,
+    sourceRef: r.source_ref,
+    priorVerdict: r.prior_verdict === '' ? null : (r.prior_verdict as Verdict),
+    priorFlag: r.prior_flag === '' ? null : (r.prior_flag as EnvironmentalFlag),
+    currentFlag: r.current_flag as EnvironmentalFlag,
+    hasAlternateAvailable: r.has_alternate_available === 'true',
+    expectedVerdict: r.expected_verdict as Verdict,
+    expectedChangedFromPrior: r.expected_changed_from_prior === 'true',
+    expectedPromotionRule: r.expected_promotion_rule as PromotionRule,
     notes: r.notes,
   }));
 }

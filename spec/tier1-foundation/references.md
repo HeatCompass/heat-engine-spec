@@ -29,6 +29,23 @@ Establishes WBGT-based environmental-flag boundaries used for training and opera
 
 (Boundaries are defined in Fahrenheit; this spec keeps the source unit for flag mapping to avoid float-precision artifacts at boundary edges.)
 
+## heat-engine-spec-design-doc-2-5
+heat-engine-spec design doc §2.5 — verdict promotion rule matrix. The state
+machine resolves five named rules in this priority order:
+
+1. `FIRST_RUN_DEFAULT` — fires when `priorVerdict === null`. Returns `delay`
+   when `currentFlag` is red or black, otherwise `go`. `changedFromPrior=false`.
+2. `NO_CHANGE` — fires when `currentFlag === priorFlag`. Holds `priorVerdict`
+   unchanged. `changedFromPrior=false`.
+3. `ALTERNATE_AVAILABLE_AT_BLACK` — fires when `currentFlag === 'black'`
+   and `hasAlternateAvailable === true`. Returns `alternate`.
+4. `ESCALATE_TO_DELAY_ON_RED_OR_BLACK` — fires when `currentFlag` is red
+   or black and the alternate-at-black rule did not. Returns `delay`.
+5. `DEESCALATE_TO_GO` — catch-all for transitions that left the
+   red/black band. Returns `go`.
+
+Flag severity ranking (low → high): white=0, green=1, yellow=2, red=3, black=4.
+
 ## usmc-6200-1e-section-3-2
 U.S. Marine Corps Order 6200.1E §3.2 — work/rest matrix for *moderate work intensity*.
 Prescribes per-hour work/rest intervals by environmental flag and acclimatization state:

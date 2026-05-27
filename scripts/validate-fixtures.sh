@@ -54,6 +54,15 @@ if [[ "$ACTUAL_RB_HEADER" != "$EXPECTED_RB_HEADER" ]]; then
   exit 1
 fi
 
+EXPECTED_VP_HEADER="id,source_ref,prior_verdict,prior_flag,current_flag,has_alternate_available,expected_verdict,expected_changed_from_prior,expected_promotion_rule,notes"
+ACTUAL_VP_HEADER=$(head -1 spec/tier1-foundation/verdict-promotion.fixtures.csv | tr -d '\r')
+if [[ "$ACTUAL_VP_HEADER" != "$EXPECTED_VP_HEADER" ]]; then
+  echo "FAIL: verdict-promotion.fixtures.csv header mismatch."
+  echo "  expected: $EXPECTED_VP_HEADER"
+  echo "  actual:   $ACTUAL_VP_HEADER"
+  exit 1
+fi
+
 echo "==> Validating source_ref resolution"
 
 # Extract all defined refs from references.md (lines starting with `## `).

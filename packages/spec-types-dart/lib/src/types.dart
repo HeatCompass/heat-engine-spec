@@ -135,6 +135,119 @@ class RefugeBreakFixtureRow {
   final String notes;
 }
 
+/// Verdict outcome of the promotion state machine.
+enum Verdict { go, delay, alternate }
+
+Verdict parseVerdict(String s) {
+  switch (s) {
+    case 'go':
+      return Verdict.go;
+    case 'delay':
+      return Verdict.delay;
+    case 'alternate':
+      return Verdict.alternate;
+    default:
+      throw ArgumentError('Unknown Verdict: "$s"');
+  }
+}
+
+/// Name of the promotion-matrix rule that fired for a given verdict
+/// invocation. Stable identifier (not localized).
+enum PromotionRule {
+  firstRunDefault,
+  noChange,
+  escalateToDelayOnRedOrBlack,
+  alternateAvailableAtBlack,
+  deescalateToGo,
+}
+
+String promotionRuleToWire(PromotionRule r) {
+  switch (r) {
+    case PromotionRule.firstRunDefault:
+      return 'FIRST_RUN_DEFAULT';
+    case PromotionRule.noChange:
+      return 'NO_CHANGE';
+    case PromotionRule.escalateToDelayOnRedOrBlack:
+      return 'ESCALATE_TO_DELAY_ON_RED_OR_BLACK';
+    case PromotionRule.alternateAvailableAtBlack:
+      return 'ALTERNATE_AVAILABLE_AT_BLACK';
+    case PromotionRule.deescalateToGo:
+      return 'DEESCALATE_TO_GO';
+  }
+}
+
+PromotionRule parsePromotionRule(String s) {
+  switch (s) {
+    case 'FIRST_RUN_DEFAULT':
+      return PromotionRule.firstRunDefault;
+    case 'NO_CHANGE':
+      return PromotionRule.noChange;
+    case 'ESCALATE_TO_DELAY_ON_RED_OR_BLACK':
+      return PromotionRule.escalateToDelayOnRedOrBlack;
+    case 'ALTERNATE_AVAILABLE_AT_BLACK':
+      return PromotionRule.alternateAvailableAtBlack;
+    case 'DEESCALATE_TO_GO':
+      return PromotionRule.deescalateToGo;
+    default:
+      throw ArgumentError('Unknown PromotionRule: "$s"');
+  }
+}
+
+/// Input to the verdict promotion state machine.
+class VerdictInput {
+  const VerdictInput({
+    required this.priorVerdict,
+    required this.priorFlag,
+    required this.currentFlag,
+    required this.hasAlternateAvailable,
+  });
+
+  final Verdict? priorVerdict;
+  final EnvironmentalFlag? priorFlag;
+  final EnvironmentalFlag currentFlag;
+  final bool hasAlternateAvailable;
+}
+
+/// Result of the verdict promotion state machine.
+class VerdictResult {
+  const VerdictResult({
+    required this.verdict,
+    required this.changedFromPrior,
+    required this.promotionRule,
+  });
+
+  final Verdict verdict;
+  final bool changedFromPrior;
+  final PromotionRule promotionRule;
+}
+
+/// One row of `verdict-promotion.fixtures.csv`.
+class VerdictFixtureRow {
+  const VerdictFixtureRow({
+    required this.id,
+    required this.sourceRef,
+    required this.priorVerdict,
+    required this.priorFlag,
+    required this.currentFlag,
+    required this.hasAlternateAvailable,
+    required this.expectedVerdict,
+    required this.expectedChangedFromPrior,
+    required this.expectedPromotionRule,
+    required this.notes,
+  });
+
+  final String id;
+  final String sourceRef;
+  final Verdict? priorVerdict;
+  final EnvironmentalFlag? priorFlag;
+  final EnvironmentalFlag currentFlag;
+  final bool hasAlternateAvailable;
+  final Verdict expectedVerdict;
+  final bool expectedChangedFromPrior;
+  final PromotionRule expectedPromotionRule;
+  final String notes;
+}
+
 EnvironmentalFlag parseEnvironmentalFlag(String s) {
   switch (s) {
     case 'white':

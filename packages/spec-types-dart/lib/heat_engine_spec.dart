@@ -16,3 +16,4 @@ export 'src/audit.dart';
 export 'src/wetbulb.dart';
 export 'src/flag.dart';
 export 'src/refuge_break.dart';
+export 'src/verdict.dart';

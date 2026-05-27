@@ -3,6 +3,7 @@ export {
   loadWetBulbFixtures,
   loadFlagMappingFixtures,
   loadRefugeBreakFixtures,
+  loadVerdictFixtures,
 } from './fixtures.js';
 
 // Approach B audit envelope (added in v0.1.0 for the full pure-function core).
@@ -28,3 +29,4 @@ export {
 } from './wetbulb.js';
 export { flagFromWetBulbF, flagFromWetBulbC } from './flag.js';
 export { workRestForFlag } from './refugeBreak.js';
+export { promoteVerdict } from './verdict.js';

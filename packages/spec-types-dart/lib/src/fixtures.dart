@@ -103,3 +103,32 @@ List<RefugeBreakFixtureRow> loadRefugeBreakFixtures() {
     );
   }).toList(growable: false);
 }
+
+List<VerdictFixtureRow> loadVerdictFixtures() {
+  final csv = _readBundledFixture('verdict-promotion.fixtures.csv')
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n');
+  final rows = const CsvToListConverter(eol: '\n', shouldParseNumbers: false)
+      .convert(csv);
+  final header = rows.first.map((e) => e.toString()).toList();
+  final idx = {for (var i = 0; i < header.length; i++) header[i]: i};
+  return rows.skip(1).map((r) {
+    final priorVerdictRaw = r[idx['prior_verdict']!] as String;
+    final priorFlagRaw = r[idx['prior_flag']!] as String;
+    return VerdictFixtureRow(
+      id: r[idx['id']!] as String,
+      sourceRef: r[idx['source_ref']!] as String,
+      priorVerdict: priorVerdictRaw.isEmpty ? null : parseVerdict(priorVerdictRaw),
+      priorFlag: priorFlagRaw.isEmpty ? null : parseEnvironmentalFlag(priorFlagRaw),
+      currentFlag: parseEnvironmentalFlag(r[idx['current_flag']!] as String),
+      hasAlternateAvailable:
+          (r[idx['has_alternate_available']!] as String) == 'true',
+      expectedVerdict: parseVerdict(r[idx['expected_verdict']!] as String),
+      expectedChangedFromPrior:
+          (r[idx['expected_changed_from_prior']!] as String) == 'true',
+      expectedPromotionRule:
+          parsePromotionRule(r[idx['expected_promotion_rule']!] as String),
+      notes: r[idx['notes']!] as String,
+    );
+  }).toList(growable: false);
+}

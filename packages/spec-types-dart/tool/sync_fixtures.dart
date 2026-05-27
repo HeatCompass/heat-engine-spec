@@ -7,6 +7,7 @@ void main() {
     'wet-bulb.fixtures.csv',
     'flag-mapping.fixtures.csv',
     'refuge-break.fixtures.csv',
+    'verdict-promotion.fixtures.csv',
   ]) {
     final src = File('$specRoot/$name');
     final dst = File('$pkgRoot/lib/fixtures/$name');
