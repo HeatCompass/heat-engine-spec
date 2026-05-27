@@ -74,3 +74,32 @@ List<FlagMappingFixtureRow> loadFlagMappingFixtures() {
         notes: r[idx['notes']!] as String,
       )).toList(growable: false);
 }
+
+List<RefugeBreakFixtureRow> loadRefugeBreakFixtures() {
+  final csv = _readBundledFixture('refuge-break.fixtures.csv')
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n');
+  final rows = const CsvToListConverter(eol: '\n', shouldParseNumbers: false)
+      .convert(csv);
+  final header = rows.first.map((e) => e.toString()).toList();
+  final idx = {for (var i = 0; i < header.length; i++) header[i]: i};
+  return rows.skip(1).map((r) {
+    final cyclesRaw = r[idx['expected_cycles_until_reassess_required']!] as String;
+    return RefugeBreakFixtureRow(
+      id: r[idx['id']!] as String,
+      sourceRef: r[idx['source_ref']!] as String,
+      flag: parseEnvironmentalFlag(r[idx['flag']!] as String),
+      acclimatized: (r[idx['acclimatized']!] as String) == 'true',
+      workMinutesRequested:
+          int.parse(r[idx['work_minutes_requested']!] as String),
+      expectedWorkMinutes:
+          int.parse(r[idx['expected_work_minutes']!] as String),
+      expectedRestMinutes:
+          int.parse(r[idx['expected_rest_minutes']!] as String),
+      expectedCyclesUntilReassessRequired:
+          cyclesRaw.isEmpty ? null : int.parse(cyclesRaw),
+      expectedCeaseWork: (r[idx['expected_cease_work']!] as String) == 'true',
+      notes: r[idx['notes']!] as String,
+    );
+  }).toList(growable: false);
+}

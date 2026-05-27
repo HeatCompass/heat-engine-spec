@@ -1,5 +1,9 @@
 export * from './types.js';
-export { loadWetBulbFixtures, loadFlagMappingFixtures } from './fixtures.js';
+export {
+  loadWetBulbFixtures,
+  loadFlagMappingFixtures,
+  loadRefugeBreakFixtures,
+} from './fixtures.js';
 
 // Approach B audit envelope (added in v0.1.0 for the full pure-function core).
 export { SPEC_VERSION } from './specVersion.js';
@@ -23,3 +27,4 @@ export {
   type WetBulbResultPlus,
 } from './wetbulb.js';
 export { flagFromWetBulbF, flagFromWetBulbC } from './flag.js';
+export { workRestForFlag } from './refugeBreak.js';

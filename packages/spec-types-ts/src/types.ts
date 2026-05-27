@@ -28,3 +28,29 @@ export interface FlagMappingFixtureRow {
   expectedFlagDartLabel: HeatRiskLevelLabel;
   notes: string;
 }
+
+export interface RefugeBreakInput {
+  flag: EnvironmentalFlag;
+  acclimatized: boolean;
+  workMinutesRequested: number;
+}
+
+export interface WorkRestInterval {
+  workMinutes: number;
+  restMinutes: number;
+  cyclesUntilReassessRequired: number | null;
+  ceaseWork: boolean;
+}
+
+export interface RefugeBreakFixtureRow {
+  id: string;
+  sourceRef: string;
+  flag: EnvironmentalFlag;
+  acclimatized: boolean;
+  workMinutesRequested: number;
+  expectedWorkMinutes: number;
+  expectedRestMinutes: number;
+  expectedCyclesUntilReassessRequired: number | null;
+  expectedCeaseWork: boolean;
+  notes: string;
+}

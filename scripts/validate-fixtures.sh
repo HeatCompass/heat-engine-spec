@@ -45,16 +45,26 @@ if [[ "$ACTUAL_FM_HEADER" != "$EXPECTED_FM_HEADER" ]]; then
   exit 1
 fi
 
+EXPECTED_RB_HEADER="id,source_ref,flag,acclimatized,work_minutes_requested,expected_work_minutes,expected_rest_minutes,expected_cycles_until_reassess_required,expected_cease_work,notes"
+ACTUAL_RB_HEADER=$(head -1 spec/tier1-foundation/refuge-break.fixtures.csv | tr -d '\r')
+if [[ "$ACTUAL_RB_HEADER" != "$EXPECTED_RB_HEADER" ]]; then
+  echo "FAIL: refuge-break.fixtures.csv header mismatch."
+  echo "  expected: $EXPECTED_RB_HEADER"
+  echo "  actual:   $ACTUAL_RB_HEADER"
+  exit 1
+fi
+
 echo "==> Validating source_ref resolution"
 
 # Extract all defined refs from references.md (lines starting with `## `).
 DEFINED_REFS=$(grep -E '^## ' spec/tier1-foundation/references.md | sed 's/^## //' | sort -u)
 
-# Extract all used refs from both fixtures (column 2, skip header).
-USED_REFS=$( {
-  tail -n +2 spec/tier1-foundation/wet-bulb.fixtures.csv | cut -d, -f2
-  tail -n +2 spec/tier1-foundation/flag-mapping.fixtures.csv | cut -d, -f2
-} | sort -u)
+# Extract all used refs from every fixture CSV (column 2, skip header).
+USED_REFS=$(
+  for f in spec/tier1-foundation/*.fixtures.csv; do
+    tail -n +2 "$f" | cut -d, -f2
+  done | sort -u
+)
 
 for ref in $USED_REFS; do
   if ! echo "$DEFINED_REFS" | grep -qx "$ref"; then

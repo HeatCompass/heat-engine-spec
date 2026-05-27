@@ -5,6 +5,7 @@ import { parse } from 'csv-parse/sync';
 import type {
   WetBulbFixtureRow,
   FlagMappingFixtureRow,
+  RefugeBreakFixtureRow,
   EnvironmentalFlag,
   HeatRiskLevelLabel,
 } from './types.js';
@@ -38,6 +39,26 @@ export function loadFlagMappingFixtures(): FlagMappingFixtureRow[] {
     wetBulbF: Number(r.wet_bulb_f),
     expectedFlag: r.expected_flag as EnvironmentalFlag,
     expectedFlagDartLabel: r.expected_flag_dart_label as HeatRiskLevelLabel,
+    notes: r.notes,
+  }));
+}
+
+export function loadRefugeBreakFixtures(): RefugeBreakFixtureRow[] {
+  const csv = readFileSync(resolve(FIXTURES_DIR, 'refuge-break.fixtures.csv'), 'utf-8');
+  const raw = parse(csv, { columns: true, skip_empty_lines: true }) as Record<string, string>[];
+  return raw.map((r) => ({
+    id: r.id,
+    sourceRef: r.source_ref,
+    flag: r.flag as EnvironmentalFlag,
+    acclimatized: r.acclimatized === 'true',
+    workMinutesRequested: Number(r.work_minutes_requested),
+    expectedWorkMinutes: Number(r.expected_work_minutes),
+    expectedRestMinutes: Number(r.expected_rest_minutes),
+    expectedCyclesUntilReassessRequired:
+      r.expected_cycles_until_reassess_required === ''
+        ? null
+        : Number(r.expected_cycles_until_reassess_required),
+    expectedCeaseWork: r.expected_cease_work === 'true',
     notes: r.notes,
   }));
 }

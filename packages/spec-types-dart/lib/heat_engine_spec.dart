@@ -15,3 +15,4 @@ export 'src/audit.dart';
 // Module reference impls (Phase B onward).
 export 'src/wetbulb.dart';
 export 'src/flag.dart';
+export 'src/refuge_break.dart';

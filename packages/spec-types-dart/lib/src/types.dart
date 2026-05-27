@@ -80,6 +80,61 @@ class FlagMappingFixtureRow {
   final String notes;
 }
 
+/// Input to USMC 6200.1E §3.2 work/rest matrix lookup.
+class RefugeBreakInput {
+  const RefugeBreakInput({
+    required this.flag,
+    required this.acclimatized,
+    required this.workMinutesRequested,
+  });
+
+  final EnvironmentalFlag flag;
+  final bool acclimatized;
+  final int workMinutesRequested;
+}
+
+/// Prescribed work/rest interval per hour per USMC 6200.1E §3.2.
+class WorkRestInterval {
+  const WorkRestInterval({
+    required this.workMinutes,
+    required this.restMinutes,
+    required this.cyclesUntilReassessRequired,
+    required this.ceaseWork,
+  });
+
+  final int workMinutes;
+  final int restMinutes;
+  final int? cyclesUntilReassessRequired;
+  final bool ceaseWork;
+}
+
+/// One row of `refuge-break.fixtures.csv`.
+class RefugeBreakFixtureRow {
+  const RefugeBreakFixtureRow({
+    required this.id,
+    required this.sourceRef,
+    required this.flag,
+    required this.acclimatized,
+    required this.workMinutesRequested,
+    required this.expectedWorkMinutes,
+    required this.expectedRestMinutes,
+    required this.expectedCyclesUntilReassessRequired,
+    required this.expectedCeaseWork,
+    required this.notes,
+  });
+
+  final String id;
+  final String sourceRef;
+  final EnvironmentalFlag flag;
+  final bool acclimatized;
+  final int workMinutesRequested;
+  final int expectedWorkMinutes;
+  final int expectedRestMinutes;
+  final int? expectedCyclesUntilReassessRequired;
+  final bool expectedCeaseWork;
+  final String notes;
+}
+
 EnvironmentalFlag parseEnvironmentalFlag(String s) {
   switch (s) {
     case 'white':

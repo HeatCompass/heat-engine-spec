@@ -28,3 +28,17 @@ Establishes WBGT-based environmental-flag boundaries used for training and opera
 - Black:  WBGT ≥ 90.0 °F
 
 (Boundaries are defined in Fahrenheit; this spec keeps the source unit for flag mapping to avoid float-precision artifacts at boundary edges.)
+
+## usmc-6200-1e-section-3-2
+U.S. Marine Corps Order 6200.1E §3.2 — work/rest matrix for *moderate work intensity*.
+Prescribes per-hour work/rest intervals by environmental flag and acclimatization state:
+
+| Flag   | Acclimatized      | Unacclimatized    |
+|--------|-------------------|-------------------|
+| White  | 60w/0r            | 50w/10r           |
+| Green  | 50w/10r           | 40w/20r           |
+| Yellow | 45w/15r, reassess after 6 cycles | 30w/30r, reassess after 4 cycles |
+| Red    | 30w/30r, reassess after 4 cycles | cease work        |
+| Black  | 10w/50r, reassess every cycle    | cease work        |
+
+The "reassess" requirement instructs the supervisor to evaluate the worker for heat-stress symptoms before continuing the next cycle. "Cease work" mandates moving the worker to refuge regardless of operational tempo.
