@@ -5,36 +5,92 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  id-token: write   # required for pub.dev OIDC trusted publishing
+  contents: write   # required for creating the GitHub Release
+
 jobs:
-  npm-publish:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Assert SPEC_VERSION constants match the tag
+        run: |
+          EXPECTED="${{ steps.version.outputs.version }}"
+          TS_VERSION=$(grep "SPEC_VERSION" packages/spec-types-ts/src/specVersion.ts \
+            | grep -oE "'[0-9]+\.[0-9]+\.[0-9]+'" | tr -d "'")
+          DART_VERSION=$(grep "specVersion" packages/spec-types-dart/lib/src/spec_version.dart \
+            | grep -oE "'[0-9]+\.[0-9]+\.[0-9]+'" | tr -d "'")
+          TS_PKG_VERSION=$(node -p "require('./packages/spec-types-ts/package.json').version")
+          DART_PKG_VERSION=$(grep '^version:' packages/spec-types-dart/pubspec.yaml \
+            | awk '{print $2}')
+          echo "tag=$EXPECTED ts=$TS_VERSION dart=$DART_VERSION ts_pkg=$TS_PKG_VERSION dart_pkg=$DART_PKG_VERSION"
+          for v in "$TS_VERSION" "$DART_VERSION" "$TS_PKG_VERSION" "$DART_PKG_VERSION"; do
+            if [ "$v" != "$EXPECTED" ]; then
+              echo "Version mismatch — tag $EXPECTED does not match all SPEC_VERSION sources"
+              exit 1
+            fi
+          done
+
+      - name: Assert CHANGELOG has an entry for this version
+        run: |
+          EXPECTED="${{ steps.version.outputs.version }}"
+          grep -qE "^## \[?${EXPECTED//./\\.}\]?" CHANGELOG.md \
+            || (echo "CHANGELOG.md missing entry for v${EXPECTED}"; exit 1)
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - name: Install + build + publish
+
+      - name: Install + build + test TS
         working-directory: packages/spec-types-ts
         run: |
           npm ci
           npm run build
-          npm publish --access restricted
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm test
 
-  pub-publish:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
-      - name: Sync fixtures + publish to pub.dev
+
+      - name: Sync fixtures + analyze + test Dart
         working-directory: packages/spec-types-dart
         run: |
           dart run tool/sync_fixtures.dart
           dart pub get
-          dart pub publish --force
+          dart analyze
+          dart test
+
+      - name: npm publish
+        working-directory: packages/spec-types-ts
         env:
-          PUB_CREDENTIALS: ${{ secrets.PUB_CREDENTIALS }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
+
+      - name: pub.dev publish (OIDC trusted publisher)
+        working-directory: packages/spec-types-dart
+        run: dart pub publish --force
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+
+      - name: Open recovery issue on partial failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `RELEASE_RECOVERY_TODO: ${context.ref} split publish`,
+              labels: ['RELEASE_RECOVERY_TODO'],
+              body: `Publish workflow failed mid-flight for \`${context.ref}\`. Check the job logs at ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId} and reconcile npm + pub.dev manually before tagging again.`
+            });

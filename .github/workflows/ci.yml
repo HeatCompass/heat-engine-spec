@@ -6,20 +6,15 @@ on:
     branches: [main]
 
 jobs:
-  validate-spec:
+  schema-validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node
+      - name: Set up Node (for ajv-cli via npx)
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
-        with:
-          sdk: stable
 
       - name: Set up Python (for build-fixtures.py determinism check)
         uses: actions/setup-python@v5
@@ -41,15 +36,74 @@ jobs:
           git diff --exit-code packages/spec-types-ts/src/generated/ \
             || (echo "generate-types.sh output diverges from committed types" && exit 1)
 
-      - name: Install TS deps + run tests
+  ts-conformance:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/spec-types-ts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install + build + test TS
+        run: |
+          npm ci
+          npm run build
+          npm test
+
+  dart-conformance:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/spec-types-dart
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Sync fixtures + analyze + test Dart
+        run: |
+          dart run tool/sync_fixtures.dart
+          dart pub get
+          dart analyze
+          dart test
+
+  cross-lang-equiv:
+    runs-on: ubuntu-latest
+    needs: [ts-conformance, dart-conformance]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: TS build + test
         working-directory: packages/spec-types-ts
         run: |
           npm ci
+          npm run build
           npm test
 
-      - name: Install Dart deps + run tests
+      - name: Dart sync + analyze + test
         working-directory: packages/spec-types-dart
         run: |
           dart run tool/sync_fixtures.dart
           dart pub get
+          dart analyze
           dart test
+
+      - name: Document equivalence
+        run: |
+          echo "Both reference impls passed in the same container at SHA $(git rev-parse HEAD)."
+          echo "Cross-language byte-equal canonicalJson(audit) is enforced by cascade-replay/*.json"
+          echo "expectedAudit fields, which both ts-conformance and dart-conformance verify against."
