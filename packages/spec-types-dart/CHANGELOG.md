@@ -1,3 +1,13 @@
+## 0.1.1 - 2026-05-28
+
+### Fixed
+- `loadWetBulbFixtures()` and the other fixture loaders could not locate the
+  bundled CSVs when this package was consumed as a hosted (pub.dev) dependency:
+  `_readBundledFixture` resolved `lib/fixtures/<file>` against a package-root URI
+  lacking a trailing slash, dropping the `heat_engine_spec-<ver>` directory. Path
+  deps were unaffected. The loader now forces a trailing slash before resolving.
+  No API or spec-contract changes.
+
 ## 0.1.0 - 2026-05-25
 
 Initial release. Tier 1 of the [heat-engine-spec](https://github.com/HeatCompass/heat-engine-spec) contract.
