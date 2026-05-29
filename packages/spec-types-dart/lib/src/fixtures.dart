@@ -21,9 +21,17 @@ String _readBundledFixture(String filename) {
       ).firstMatch(cfgText);
       if (match != null) {
         final root = Uri.parse(match.group(1)!);
-        final base = root.isAbsolute
+        final rawBase = root.isAbsolute
             ? root
             : Uri.directory('${dir.path}/.dart_tool/').resolveUri(root);
+        // Force a trailing slash so resolve() APPENDS rather than replacing the
+        // final path segment. Hosted deps record rootUri without one (e.g.
+        // .pub-cache/hosted/pub.dev/heat_engine_spec-0.1.0), so resolving
+        // 'lib/fixtures/x' against it would drop the version dir and miss the
+        // bundled fixture. Path deps already carry the slash.
+        final base = rawBase.path.endsWith('/')
+            ? rawBase
+            : rawBase.replace(path: '${rawBase.path}/');
         final csvFile = File.fromUri(base.resolve('lib/fixtures/$filename'));
         if (csvFile.existsSync()) {
           return csvFile.readAsStringSync();

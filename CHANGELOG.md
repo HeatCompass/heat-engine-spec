@@ -7,6 +7,20 @@ pre-1.0 uses the npm convention: `0.MINOR.PATCH` where MINOR = breaking, PATCH =
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-28
+### Fixed
+- Fixture loaders (`loadWetBulbFixtures()` et al.) could not locate the bundled
+  CSVs when `heat_engine_spec` was consumed as a **hosted (pub.dev) dependency**.
+  `_readBundledFixture` resolved `lib/fixtures/<file>` against a package-root URI
+  with no trailing slash, so URI resolution dropped the version directory
+  (`.../heat_engine_spec-0.1.0`) and looked one level too high. Path dependencies
+  happened to carry the slash and were unaffected — which is why the consumer
+  conformance tests passed pre-publish but failed once they switched to the
+  published package. The loader now forces a trailing slash before resolving.
+
+No API or spec-contract changes. `SPEC_VERSION` is bumped only to satisfy the
+release workflow's version-sync assertion (Dart/TS constants + manifests + tag).
+
 ## [0.1.0] — 2026-05-27
 ### Added
 Tier 1 release. Establishes the cross-language contract for the HeatCompass

@@ -1,6 +1,6 @@
 {
   "$schema": "https://heat-engine.spec/tier1/cascade-fixtures.schema.json",
-  "spec_version": "0.1.0",
+  "spec_version": "0.1.1",
   "module": "cascade",
   "source_citations": ["cascade-nws", "cascade-open-meteo"],
   "rows": [
@@ -38,7 +38,7 @@
         "sample": { "tempC": 21.8, "rhPercent": 60, "windMps": 2.4, "source": "open-meteo" }
       },
       "expectedAudit": {
-        "spec_version": "0.1.0",
+        "spec_version": "0.1.1",
         "function": "fetchWeatherCascade",
         "inputs": { "lat": 37.7749, "lng": -122.4194 },
         "constants": { "nws_timeout_ms": 5000, "open_meteo_timeout_ms": 5000 },
@@ -53,7 +53,7 @@
         ],
         "children": [
           {
-            "spec_version": "0.1.0",
+            "spec_version": "0.1.1",
             "function": "fetchWeatherCascade.nws",
             "inputs": { "lat": 37.7749, "lng": -122.4194 },
             "constants": { "nws_timeout_ms": 5000 },
@@ -62,7 +62,7 @@
             "computed_at": "2026-05-26T17:00:00.000Z"
           },
           {
-            "spec_version": "0.1.0",
+            "spec_version": "0.1.1",
             "function": "fetchWeatherCascade.open-meteo",
             "inputs": { "lat": 37.7749, "lng": -122.4194 },
             "constants": { "open_meteo_timeout_ms": 5000 },

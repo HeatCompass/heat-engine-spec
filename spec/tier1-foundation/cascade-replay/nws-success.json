@@ -1,6 +1,6 @@
 {
   "$schema": "https://heat-engine.spec/tier1/cascade-fixtures.schema.json",
-  "spec_version": "0.1.0",
+  "spec_version": "0.1.1",
   "module": "cascade",
   "source_citations": ["cascade-nws"],
   "rows": [
@@ -28,7 +28,7 @@
         "sample": { "tempC": 22.5, "rhPercent": 58, "windMps": 3.1, "source": "nws" }
       },
       "expectedAudit": {
-        "spec_version": "0.1.0",
+        "spec_version": "0.1.1",
         "function": "fetchWeatherCascade",
         "inputs": { "lat": 37.7749, "lng": -122.4194 },
         "constants": { "nws_timeout_ms": 5000, "open_meteo_timeout_ms": 5000 },
@@ -41,7 +41,7 @@
         ],
         "children": [
           {
-            "spec_version": "0.1.0",
+            "spec_version": "0.1.1",
             "function": "fetchWeatherCascade.nws",
             "inputs": { "lat": 37.7749, "lng": -122.4194 },
             "constants": { "nws_timeout_ms": 5000 },
