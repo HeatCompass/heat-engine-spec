@@ -259,4 +259,27 @@ void main() {
       expect(kmh.result!.sample.windMps, 5);
     });
   });
+
+  group('a null Open-Meteo field counts as missing', () {
+    test('a null temperature falls through to simulated', () async {
+      final ret = await fetchWeatherCascade(
+        const CascadeRequest(lat: 1, lng: 2),
+        SpecContext(
+          clock: () => DateTime.utc(2026, 5, 26, 17),
+          httpAdapter: buildReplayAdapter(const [
+            CascadeReplayResponse(urlPattern: r'api\.weather\.gov', status: 503, bodyText: 'unavailable'),
+            CascadeReplayResponse(
+              urlPattern: r'api\.open-meteo\.com',
+              status: 200,
+              bodyJson: {
+                'current': {'temperature_2m': null, 'relative_humidity_2m': 60},
+              },
+            ),
+          ]),
+        ),
+      );
+      expect(ret.result!.sample.source, WeatherSource.simulated);
+      expect(ret.audit.sourcesTried![1].error, 'missing_field:temperature_2m');
+    });
+  });
 }

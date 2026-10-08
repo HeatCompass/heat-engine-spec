@@ -195,3 +195,22 @@ describe('windMps is metres per second', () => {
     expect(kmh.result?.sample.windMps).toBe(5);
   });
 });
+
+describe('a null Open-Meteo field counts as missing', () => {
+  it('a null temperature falls through to simulated instead of returning tempC: null', async () => {
+    const responses: CascadeReplayResponse[] = [
+      { url_pattern: 'api\\.weather\\.gov', status: 503, body_text: 'unavailable' },
+      {
+        url_pattern: 'api\\.open-meteo\\.com',
+        status: 200,
+        body_json: { current: { temperature_2m: null, relative_humidity_2m: 60 } },
+      },
+    ];
+    const { result, audit } = await fetchWeatherCascade(
+      { lat: 1, lng: 2 },
+      { clock: () => new Date('2026-05-26T17:00:00.000Z'), httpAdapter: buildReplayAdapter(responses) },
+    );
+    expect(result?.sample.source).toBe('simulated');
+    expect(audit.sources_tried?.[1]?.error).toBe('missing_field:temperature_2m');
+  });
+});

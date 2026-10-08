@@ -315,9 +315,9 @@ function parseNws(body: unknown): WeatherSample | { error: string } {
 interface OpenMeteoBody {
   current_units?: { wind_speed_10m?: string };
   current?: {
-    temperature_2m?: number;
-    relative_humidity_2m?: number;
-    wind_speed_10m?: number;
+    temperature_2m?: number | null;
+    relative_humidity_2m?: number | null;
+    wind_speed_10m?: number | null;
   };
 }
 
@@ -334,8 +334,10 @@ function parseOpenMeteo(body: unknown): WeatherSample | { error: string } {
   const b = body as OpenMeteoBody;
   const t = b?.current?.temperature_2m;
   const rh = b?.current?.relative_humidity_2m;
-  if (t === undefined) return { error: 'missing_field:temperature_2m' };
-  if (rh === undefined) return { error: 'missing_field:relative_humidity_2m' };
+  // null counts as missing, as it does for NWS and in the Dart implementation;
+  // otherwise a null temperature became a sample with tempC: null.
+  if (t === undefined || t === null) return { error: 'missing_field:temperature_2m' };
+  if (rh === undefined || rh === null) return { error: 'missing_field:relative_humidity_2m' };
   const ws = openMeteoWindMps(b?.current?.wind_speed_10m, b?.current_units?.wind_speed_10m);
   const sample: WeatherSample = { tempC: t, rhPercent: rh, source: 'open-meteo' };
   if (ws !== undefined) sample.windMps = ws;
