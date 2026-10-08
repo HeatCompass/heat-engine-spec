@@ -7,6 +7,45 @@ pre-1.0 uses the npm convention: `0.MINOR.PATCH` where MINOR = breaking, PATCH =
 
 ## [Unreleased]
 
+Found by rebuilding the engine from a written specification
+([regen-heat-engine](https://github.com/craigm26/regen-heat-engine); its
+decisions D-006 to D-009 and D-013).
+
+### Fixed
+- **NWS observations come from endpoints that exist.** `fetchWeatherCascade`
+  requested `https://api.weather.gov/points/{lat},{lng}/observations/latest`,
+  which the NWS API does not have (it answers 404), so with the live service
+  the cascade always fell back to Open-Meteo. The NWS tier now makes the
+  documented three requests: `/points/{lat},{lng}`, then the point's
+  `observationStations` list, then `/stations/{id}/observations/latest` for
+  the first station. NWS requests send a `User-Agent` (NWS answers 403
+  without one). Each request has the NWS timeout (5 s), so a slow NWS can
+  take up to 15 s before the cascade moves on. A point without
+  `observationStations`, or an empty station list, fails the tier with
+  `missing_field:observationStations` or `missing_field:stationIdentifier`.
+  The cascade-replay fixtures gain replay answers for the first two
+  requests; their expected results and audits are unchanged.
+- **`windMps` is in metres per second.** NWS reports wind in km/h (`unitCode`
+  `wmoUnit:km_h-1`) and Open-Meteo's default unit is km/h; both were copied
+  into `windMps` unchanged, 3.6 times too large. NWS km/h (or a missing unit
+  code) is divided by 3.6, m/s is kept, and any other unit leaves `windMps`
+  out. Open-Meteo is asked for `wind_speed_unit=ms`, and a km/h answer is
+  still converted. Fixture change: `nws-success` now expects `windMps`
+  0.8611111111111112 (3.1 km/h) instead of 3.1. Audits do not contain wind.
+- TypeScript: a `null` Open-Meteo `temperature_2m` or `relative_humidity_2m`
+  counts as missing and falls through to the next source, as in Dart and for
+  NWS. It used to produce a sample with `tempC: null`.
+- TypeScript: an `Infinity` or `-Infinity` input was written to its audit as
+  `null`, where Dart wrote `"Infinity"`. Both now write `"NaN"`, `"Infinity"`
+  and `"-Infinity"`, and the TypeScript `canonicalJson` writes a non-finite
+  number as that string instead of `null`, as the Dart one does.
+
+### Changed
+- `wet-bulb-input.schema.json`: `rhPercent` maximum 99 → 100. Both
+  implementations clamp RH to [5, 100] and test that 120 becomes 100; the
+  schema said they must clamp to [5, 99]. It still states Stull's validated
+  range, [5, 99].
+
 ## [0.1.1] — 2026-05-28
 ### Fixed
 - Fixture loaders (`loadWetBulbFixtures()` et al.) could not locate the bundled

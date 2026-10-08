@@ -10,7 +10,7 @@ export 'src/fixtures.dart';
 // Approach B audit envelope (added in v0.1.0 for the full pure-function core).
 export 'src/spec_version.dart';
 export 'src/canonical_json.dart';
-export 'src/audit.dart';
+export 'src/audit.dart' hide auditNumber;
 
 // Module reference impls (Phase B onward).
 export 'src/wetbulb.dart';

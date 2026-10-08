@@ -10,6 +10,9 @@ DOI: 10.1175/JAMC-D-11-0143.1
 Provides the empirical formula and validity range:
 - Temperature: -20 °C ≤ T ≤ 50 °C
 - Relative humidity: 5% ≤ RH ≤ 99%
+  (Implementations clamp RH to [5, 100], not [5, 99]: 100 % is a real
+  humidity, so RH in (99, 100] is computed as given. See
+  `wet-bulb-input.schema.json`.)
 - Claimed accuracy: ±0.65 °C RMS across this domain
 
 ## stull-2011-cross-check
@@ -30,18 +33,35 @@ Establishes WBGT-based environmental-flag boundaries used for training and opera
 (Boundaries are defined in Fahrenheit; this spec keeps the source unit for flag mapping to avoid float-precision artifacts at boundary edges.)
 
 ## cascade-nws
-National Weather Service observation API — `api.weather.gov`. Cascade tier 1
-(highest authority for US locations). Endpoint:
-`GET /points/{lat},{lng}/observations/latest`. Expected response shape:
-`{ properties: { temperature: { value }, relativeHumidity: { value }, windSpeed: { value } } }`.
-Each value field may be null; cascade treats null as a missing field and
-falls through to the next tier. Per-source timeout 5000ms (default).
+National Weather Service observation API — `api.weather.gov`
+(https://www.weather.gov/documentation/services-web-api). Cascade tier 1
+(highest authority for US locations). Observations are per station, not per
+point, so the tier makes three requests:
+
+1. `GET /points/{lat},{lng}` → `{ properties: { observationStations } }`, the URL
+   of the point's station list.
+2. `GET {observationStations}` → `{ features: [ { properties: { stationIdentifier } }, … ] }`,
+   nearest station first.
+3. `GET /stations/{stationIdentifier}/observations/latest` →
+   `{ properties: { temperature: { value }, relativeHumidity: { value }, windSpeed: { value, unitCode } } }`.
+   Wind is reported in km/h (`unitCode` `wmoUnit:km_h-1`, also assumed when the
+   code is missing) and divided by 3.6 for `windMps`; `wmoUnit:m_s-1` is used as
+   is, and any other unit leaves `windMps` out.
+
+(`/points/{lat},{lng}/observations/latest` does not exist; it returns 404.)
+Requests send a `User-Agent`, which NWS requires (it answers 403 without one).
+A failure at any step fails the tier. Each value field may be null; cascade
+treats null as a missing field and falls through to the next tier. Per-request
+timeout 5000ms (default).
 
 ## cascade-open-meteo
 Open-Meteo forecast API — `api.open-meteo.com`. Cascade tier 2 (worldwide
 coverage, no API key). Endpoint:
-`GET /v1/forecast?latitude={lat}&longitude={lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m`.
-Expected response shape: `{ current: { temperature_2m, relative_humidity_2m, wind_speed_10m } }`.
+`GET /v1/forecast?latitude={lat}&longitude={lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&wind_speed_unit=ms`.
+Expected response shape: `{ current_units: { wind_speed_10m }, current: { temperature_2m, relative_humidity_2m, wind_speed_10m } }`.
+The service's default wind unit is km/h, so the request asks for m/s; a response
+whose `current_units.wind_speed_10m` is `km/h` is still divided by 3.6, and any
+other unit leaves `windMps` out.
 Per-source timeout 5000ms (default).
 
 ## cascade-simulated

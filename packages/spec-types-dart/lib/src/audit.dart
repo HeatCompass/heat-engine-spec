@@ -134,6 +134,11 @@ class SpecReturn<T> {
   const SpecReturn({required this.result, required this.audit});
 }
 
+/// A numeric input as an audit records it. JSON has no NaN or Infinity, so
+/// those are written as the strings "NaN", "Infinity" and "-Infinity", the
+/// same text the TypeScript implementation writes.
+Object auditNumber(double n) => n.isFinite ? n : n.toString();
+
 AuditRecord buildAudit({
   required String fn,
   required Map<String, Object?> inputs,

@@ -46,9 +46,25 @@ describe('cascade conformance against existing 6 replay fixtures', () => {
   }
 });
 
+// The first two NWS requests (point metadata, then its observation stations),
+// as the replay fixtures give them.
+const NWS_POINT_AND_STATIONS: CascadeReplayResponse[] = [
+  {
+    url_pattern: 'api\\.weather\\.gov/points/',
+    status: 200,
+    body_json: { properties: { observationStations: 'https://api.weather.gov/gridpoints/MTR/85,105/stations' } },
+  },
+  {
+    url_pattern: 'api\\.weather\\.gov/gridpoints/.*/stations$',
+    status: 200,
+    body_json: { features: [{ properties: { stationIdentifier: 'SFOC1' } }] },
+  },
+];
+
 describe('cascade input forwarding', () => {
   it('passes isoTimestamp through to audit inputs when provided', async () => {
     const responses: CascadeReplayResponse[] = [
+      ...NWS_POINT_AND_STATIONS,
       {
         url_pattern: 'api\\.weather\\.gov/.*/observations/latest',
         status: 200,
@@ -74,5 +90,127 @@ describe('cascade input forwarding', () => {
       lng: 2,
       isoTimestamp: '2026-05-26T16:00:00.000Z',
     });
+  });
+});
+
+describe('NWS request flow (points → stations → latest observation)', () => {
+  const observation: CascadeReplayResponse = {
+    url_pattern: 'api\\.weather\\.gov/stations/[^/]+/observations/latest$',
+    status: 200,
+    body_json: { properties: { temperature: { value: 25 }, relativeHumidity: { value: 50 } } },
+  };
+  const ctxWith = (responses: CascadeReplayResponse[], seen: { url: string; headers?: Record<string, string> }[] = []) => ({
+    clock: () => new Date('2026-05-26T17:00:00.000Z'),
+    httpAdapter: (async (req) => {
+      seen.push({ url: req.url, headers: req.headers });
+      return buildReplayAdapter(responses)(req);
+    }) as HttpAdapter,
+  });
+
+  it('asks for the point, then its stations, then the first station\'s latest observation', async () => {
+    const seen: { url: string; headers?: Record<string, string> }[] = [];
+    const { result } = await fetchWeatherCascade({ lat: 37.7749, lng: -122.4194 }, ctxWith([...NWS_POINT_AND_STATIONS, observation], seen));
+    expect(result?.sample.source).toBe('nws');
+    expect(seen.map((r) => r.url)).toEqual([
+      'https://api.weather.gov/points/37.7749,-122.4194',
+      'https://api.weather.gov/gridpoints/MTR/85,105/stations',
+      'https://api.weather.gov/stations/SFOC1/observations/latest',
+    ]);
+    // NWS answers 403 to requests without a User-Agent.
+    for (const r of seen) expect(r.headers?.['User-Agent']).toMatch(/heat-engine-spec/);
+  });
+
+  it('a point without observationStations fails the NWS tier', async () => {
+    const responses: CascadeReplayResponse[] = [
+      { url_pattern: 'api\\.weather\\.gov/points/', status: 200, body_json: { properties: {} } },
+    ];
+    const { audit } = await fetchWeatherCascade({ lat: 1, lng: 2 }, ctxWith(responses));
+    expect(audit.sources_tried?.[0]).toEqual({
+      source: 'nws',
+      status: 'error',
+      duration_ms: 0,
+      error: 'missing_field:observationStations',
+    });
+  });
+
+  it('an empty station list fails the NWS tier', async () => {
+    const responses: CascadeReplayResponse[] = [
+      NWS_POINT_AND_STATIONS[0]!,
+      { url_pattern: 'api\\.weather\\.gov/gridpoints/', status: 200, body_json: { features: [] } },
+    ];
+    const { audit } = await fetchWeatherCascade({ lat: 1, lng: 2 }, ctxWith(responses));
+    expect(audit.sources_tried?.[0]?.error).toBe('missing_field:stationIdentifier');
+  });
+
+  it('an HTTP error on the point request is that tier\'s error', async () => {
+    const responses: CascadeReplayResponse[] = [
+      { url_pattern: 'api\\.weather\\.gov/points/', status: 404, body_text: 'not found' },
+    ];
+    const { audit } = await fetchWeatherCascade({ lat: 1, lng: 2 }, ctxWith(responses));
+    expect(audit.sources_tried?.[0]?.error).toBe('http_404');
+  });
+});
+
+describe('windMps is metres per second', () => {
+  const run = async (responses: CascadeReplayResponse[], seen: string[] = []) =>
+    fetchWeatherCascade(
+      { lat: 1, lng: 2 },
+      {
+        clock: () => new Date('2026-05-26T17:00:00.000Z'),
+        httpAdapter: (async (req) => {
+          seen.push(req.url);
+          return buildReplayAdapter(responses)(req);
+        }) as HttpAdapter,
+      },
+    );
+  const nwsWith = (windSpeed: Record<string, unknown>): CascadeReplayResponse[] => [
+    ...NWS_POINT_AND_STATIONS,
+    {
+      url_pattern: 'observations/latest',
+      status: 200,
+      body_json: { properties: { temperature: { value: 25 }, relativeHumidity: { value: 50 }, windSpeed } },
+    },
+  ];
+  const openMeteoWith = (body: Record<string, unknown>): CascadeReplayResponse[] => [
+    { url_pattern: 'api\\.weather\\.gov', status: 503, body_text: 'unavailable' },
+    { url_pattern: 'api\\.open-meteo\\.com', status: 200, body_json: body },
+  ];
+
+  it('NWS km/h (wmoUnit:km_h-1, also assumed when the unit code is missing) is divided by 3.6', async () => {
+    expect((await run(nwsWith({ value: 36, unitCode: 'wmoUnit:km_h-1' }))).result?.sample.windMps).toBe(10);
+    expect((await run(nwsWith({ value: 3.1 }))).result?.sample.windMps).toBe(3.1 / 3.6);
+  });
+
+  it('NWS m/s is kept, and an unknown unit leaves windMps out', async () => {
+    expect((await run(nwsWith({ value: 4, unitCode: 'wmoUnit:m_s-1' }))).result?.sample.windMps).toBe(4);
+    expect((await run(nwsWith({ value: 4, unitCode: 'wmoUnit:kn' }))).result?.sample).not.toHaveProperty('windMps');
+  });
+
+  it('Open-Meteo is asked for m/s, and a km/h answer is still converted', async () => {
+    const current = { temperature_2m: 20, relative_humidity_2m: 50, wind_speed_10m: 18 };
+    const seen: string[] = [];
+    expect((await run(openMeteoWith({ current }), seen)).result?.sample.windMps).toBe(18);
+    expect(seen.find((u) => u.includes('open-meteo'))).toContain('&wind_speed_unit=ms');
+    const kmh = await run(openMeteoWith({ current_units: { wind_speed_10m: 'km/h' }, current }));
+    expect(kmh.result?.sample.windMps).toBe(5);
+  });
+});
+
+describe('a null Open-Meteo field counts as missing', () => {
+  it('a null temperature falls through to simulated instead of returning tempC: null', async () => {
+    const responses: CascadeReplayResponse[] = [
+      { url_pattern: 'api\\.weather\\.gov', status: 503, body_text: 'unavailable' },
+      {
+        url_pattern: 'api\\.open-meteo\\.com',
+        status: 200,
+        body_json: { current: { temperature_2m: null, relative_humidity_2m: 60 } },
+      },
+    ];
+    const { result, audit } = await fetchWeatherCascade(
+      { lat: 1, lng: 2 },
+      { clock: () => new Date('2026-05-26T17:00:00.000Z'), httpAdapter: buildReplayAdapter(responses) },
+    );
+    expect(result?.sample.source).toBe('simulated');
+    expect(audit.sources_tried?.[1]?.error).toBe('missing_field:temperature_2m');
   });
 });

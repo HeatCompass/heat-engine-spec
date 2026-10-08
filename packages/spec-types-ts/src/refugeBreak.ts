@@ -13,7 +13,7 @@
 // 'non_positive_work_window' marker in the audit's result_summary.
 
 import type { SpecContext, SpecReturn } from './audit.js';
-import { buildAudit } from './audit.js';
+import { auditNumber, buildAudit } from './audit.js';
 import type {
   EnvironmentalFlag,
   RefugeBreakInput,
@@ -82,7 +82,7 @@ export function workRestForFlag(
         inputs: {
           flag,
           acclimatized,
-          workMinutesRequested: Number.isNaN(workMinutesRequested) ? 'NaN' : workMinutesRequested,
+          workMinutesRequested: auditNumber(workMinutesRequested),
         },
         constants: {},
         citation: CITATION,

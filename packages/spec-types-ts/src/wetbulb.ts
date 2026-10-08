@@ -12,7 +12,7 @@
 // input; returns { result: null, audit: {...} } on NaN / non-finite.
 
 import type { SpecContext, SpecReturn } from './audit.js';
-import { buildAudit } from './audit.js';
+import { auditNumber, buildAudit } from './audit.js';
 import type { WetBulbInput, WetBulbOutput } from './types.js';
 
 const STULL_A = 0.151977;
@@ -116,10 +116,7 @@ export function celsiusToFahrenheit(tempC: number): number {
 }
 
 function encodeInputs(tempC: number, rhPercent: number): Record<string, unknown> {
-  return {
-    tempC: Number.isNaN(tempC) ? 'NaN' : tempC,
-    rhPercent: Number.isNaN(rhPercent) ? 'NaN' : rhPercent,
-  };
+  return { tempC: auditNumber(tempC), rhPercent: auditNumber(rhPercent) };
 }
 
 function formatNum(n: number): string {

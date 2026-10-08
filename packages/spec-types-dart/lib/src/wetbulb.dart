@@ -131,8 +131,8 @@ double celsiusToFahrenheit(double tempC) => (tempC * 9) / 5 + 32;
 
 Map<String, Object?> _encodeInputs(double tempC, double rhPercent) {
   return {
-    'tempC': tempC.isNaN ? 'NaN' : tempC,
-    'rhPercent': rhPercent.isNaN ? 'NaN' : rhPercent,
+    'tempC': auditNumber(tempC),
+    'rhPercent': auditNumber(rhPercent),
   };
 }
 

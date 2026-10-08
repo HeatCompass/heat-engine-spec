@@ -56,6 +56,16 @@ export type SpecContext = {
 
 export type SpecReturn<T> = { result: T | null; audit: AuditRecord };
 
+/**
+ * A numeric input as an audit records it. JSON has no NaN or Infinity, so
+ * those are written as the strings "NaN", "Infinity" and "-Infinity", the
+ * same text the Dart implementation writes. (Infinity used to reach the
+ * serializer as a number and come out as null.)
+ */
+export function auditNumber(n: number): number | string {
+  return Number.isFinite(n) ? n : String(n);
+}
+
 export function buildAudit(args: {
   fn: string;
   inputs: Record<string, unknown>;

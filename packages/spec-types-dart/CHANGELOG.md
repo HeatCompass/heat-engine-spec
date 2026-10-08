@@ -1,3 +1,15 @@
+## Unreleased
+
+### Fixed
+- `fetchWeatherCascade` fetches NWS observations with the documented requests
+  (`/points/{lat},{lng}`, its station list, then
+  `/stations/{id}/observations/latest`) and a `User-Agent` header. The path it
+  used before does not exist on `api.weather.gov`, so the NWS tier always
+  failed against the live service.
+- `windMps` is in metres per second. NWS reports km/h and Open-Meteo defaults
+  to km/h; both were copied unconverted. NWS km/h is divided by 3.6 and
+  Open-Meteo is asked for `wind_speed_unit=ms`.
+
 ## 0.1.1 - 2026-05-28
 
 ### Fixed

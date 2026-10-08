@@ -2,6 +2,12 @@
 //
 // Mirror of cascade.ts. Result summaries + child-audit shape match
 // byte-for-byte across languages via canonicalJson.
+//
+// NWS serves observations per station, not per point, so its tier is three
+// requests (https://www.weather.gov/documentation/services-web-api):
+// /points/{lat},{lng} names the point's observation stations, that list
+// starts with the nearest station, and /stations/{id}/observations/latest is
+// its latest observation. A failure at any of the three fails the tier.
 
 import 'dart:async';
 import 'dart:convert';
@@ -11,6 +17,12 @@ import 'audit.dart';
 import 'types.dart';
 
 const String _citation = 'Cascade order: NWS → Open-Meteo → simulated';
+const String _nwsBase = 'https://api.weather.gov';
+// NWS requires every client to send a User-Agent (it answers 403 without one).
+const Map<String, String> _nwsHeaders = {
+  'User-Agent': 'heat-engine-spec (https://github.com/HeatCompass/heat-engine-spec)',
+  'Accept': 'application/geo+json',
+};
 const String _nwsCitation = 'api.weather.gov';
 const String _openMeteoCitation = 'api.open-meteo.com';
 const int _nwsTimeoutMs = 5000;
@@ -159,17 +171,35 @@ Future<_SourceTry> _tryNws(
   HttpAdapter adapter,
   SpecContext? ctx,
 ) {
-  final url =
-      'https://api.weather.gov/points/${_formatLatLng(req.lat)},${_formatLatLng(req.lng)}/observations/latest';
-  return _tryFetch(
+  return _trySource(
     source: WeatherSource.nws,
-    url: url,
     timeoutMs: _nwsTimeoutMs,
     citation: _nwsCitation,
     adapter: adapter,
-    parser: _parseNws,
+    headers: _nwsHeaders,
     req: req,
     ctx: ctx,
+    run: (get) async {
+      final point = await get(
+          '$_nwsBase/points/${_formatLatLng(req.lat)},${_formatLatLng(req.lng)}');
+      final pointProps = point is Map<String, Object?> ? point['properties'] : null;
+      final stationsUrl =
+          pointProps is Map<String, Object?> ? pointProps['observationStations'] : null;
+      if (stationsUrl is! String) {
+        return const _ParseError('missing_field:observationStations');
+      }
+      final stations = await get(stationsUrl);
+      final features = stations is Map<String, Object?> ? stations['features'] : null;
+      final first = features is List && features.isNotEmpty ? features.first : null;
+      final firstProps = first is Map<String, Object?> ? first['properties'] : null;
+      final stationId =
+          firstProps is Map<String, Object?> ? firstProps['stationIdentifier'] : null;
+      if (stationId is! String) {
+        return const _ParseError('missing_field:stationIdentifier');
+      }
+      return _parseNws(await get(
+          '$_nwsBase/stations/${Uri.encodeComponent(stationId)}/observations/latest'));
+    },
   );
 }
 
@@ -178,77 +208,80 @@ Future<_SourceTry> _tryOpenMeteo(
   HttpAdapter adapter,
   SpecContext? ctx,
 ) {
+  // Open-Meteo's default wind unit is km/h; ask for m/s, the unit of windMps.
   final url =
-      'https://api.open-meteo.com/v1/forecast?latitude=${_formatLatLng(req.lat)}&longitude=${_formatLatLng(req.lng)}&current=temperature_2m,relative_humidity_2m,wind_speed_10m';
-  return _tryFetch(
+      'https://api.open-meteo.com/v1/forecast?latitude=${_formatLatLng(req.lat)}&longitude=${_formatLatLng(req.lng)}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&wind_speed_unit=ms';
+  return _trySource(
     source: WeatherSource.openMeteo,
-    url: url,
     timeoutMs: _openMeteoTimeoutMs,
     citation: _openMeteoCitation,
     adapter: adapter,
-    parser: _parseOpenMeteo,
+    headers: null,
     req: req,
     ctx: ctx,
+    run: (get) async => _parseOpenMeteo(await get(url)),
   );
 }
 
-Future<_SourceTry> _tryFetch({
+/// A request in a source's chain failed in a way the attempt records by code.
+class _SourceFailure implements Exception {
+  final String code;
+  const _SourceFailure(this.code);
+}
+
+typedef _Get = Future<Object?> Function(String url);
+
+Future<_SourceTry> _trySource({
   required WeatherSource source,
-  required String url,
   required int timeoutMs,
   required String citation,
   required HttpAdapter adapter,
-  required Object? Function(Object?) parser,
+  required Map<String, String>? headers,
   required CascadeRequest req,
   required SpecContext? ctx,
+  required Future<Object?> Function(_Get get) run,
 }) async {
+  // One GET of the chain: HTTP >= 400 is http_<status>, an unparsable body is
+  // parse_error, and a timeout or transport error propagates.
+  Future<Object?> get(String url) async {
+    final res = await adapter(
+        HttpRequest(url: url, timeoutMs: timeoutMs, headers: headers));
+    if (res.status >= 400) throw _SourceFailure('http_${res.status}');
+    try {
+      return jsonDecode(res.body);
+    } catch (_) {
+      throw const _SourceFailure('parse_error');
+    }
+  }
+
   SourceAttempt attempt = SourceAttempt(source: source, status: 'ok', durationMs: 0);
   WeatherSample? sample;
   final sourceWire = weatherSourceToWire(source);
   String summary = '$sourceWire OK in 0ms';
 
   try {
-    final res = await adapter(HttpRequest(url: url, timeoutMs: timeoutMs));
-    if (res.status >= 400) {
+    final out = await run(get);
+    if (out is WeatherSample) {
+      sample = out;
+      attempt = SourceAttempt(source: source, status: 'ok', durationMs: 0);
+      summary = '$sourceWire OK in 0ms';
+    } else if (out is _ParseError) {
       attempt = SourceAttempt(
         source: source,
         status: 'error',
         durationMs: 0,
-        error: 'http_${res.status}',
+        error: out.code,
       );
-      summary = '$sourceWire http_${res.status}';
-    } else {
-      Object? parsed;
-      var parseFailed = false;
-      try {
-        parsed = jsonDecode(res.body);
-      } catch (_) {
-        parseFailed = true;
-        attempt = SourceAttempt(
-          source: source,
-          status: 'error',
-          durationMs: 0,
-          error: 'parse_error',
-        );
-        summary = '$sourceWire parse_error';
-      }
-      if (!parseFailed) {
-        final out = parser(parsed);
-        if (out is WeatherSample) {
-          sample = out;
-          attempt = SourceAttempt(source: source, status: 'ok', durationMs: 0);
-          summary = '$sourceWire OK in 0ms';
-        } else if (out is _ParseError) {
-          attempt = SourceAttempt(
-            source: source,
-            status: 'error',
-            durationMs: 0,
-            error: out.code,
-          );
-          summary = '$sourceWire ${out.code}';
-        }
-      }
+      summary = '$sourceWire ${out.code}';
     }
+  } on _SourceFailure catch (f) {
+    attempt = SourceAttempt(
+      source: source,
+      status: 'error',
+      durationMs: 0,
+      error: f.code,
+    );
+    summary = '$sourceWire ${f.code}';
   } catch (e) {
     final msg = e is TimeoutException
         ? (e.message ?? 'timeout')
@@ -308,12 +341,35 @@ Object? _parseNws(Object? body) {
   if (rhVal == null) return const _ParseError('missing_field:relativeHumidity');
   final wsObj = props['windSpeed'];
   final wsVal = wsObj is Map<String, Object?> ? wsObj['value'] : null;
+  final wsUnit = wsObj is Map<String, Object?> ? wsObj['unitCode'] : null;
   return WeatherSample(
     tempC: (tempVal as num).toDouble(),
     rhPercent: (rhVal as num).toDouble(),
     source: WeatherSource.nws,
-    windMps: wsVal == null ? null : (wsVal as num).toDouble(),
+    windMps: _nwsWindMps(wsVal, wsUnit),
   );
+}
+
+const double _kmhPerMps = 3.6;
+
+// NWS gives wind as a WMO-coded quantity; observations use km/h
+// ("wmoUnit:km_h-1"), and a reading without a unit code is taken to be in
+// that unit. A unit this code does not know leaves windMps out rather than
+// mislabel it.
+double? _nwsWindMps(Object? value, Object? unitCode) {
+  if (value is! num) return null;
+  if (unitCode == null || unitCode == 'wmoUnit:km_h-1') return value.toDouble() / _kmhPerMps;
+  if (unitCode == 'wmoUnit:m_s-1') return value.toDouble();
+  return null;
+}
+
+// The request asks for m/s; current_units says what came back. km/h (the
+// service default) is converted, and an unknown unit leaves windMps out.
+double? _openMeteoWindMps(Object? value, Object? unit) {
+  if (value is! num) return null;
+  if (unit == null || unit == 'm/s') return value.toDouble();
+  if (unit == 'km/h') return value.toDouble() / _kmhPerMps;
+  return null;
 }
 
 Object? _parseOpenMeteo(Object? body) {
@@ -324,12 +380,13 @@ Object? _parseOpenMeteo(Object? body) {
   if (t == null) return const _ParseError('missing_field:temperature_2m');
   final rh = current['relative_humidity_2m'];
   if (rh == null) return const _ParseError('missing_field:relative_humidity_2m');
-  final ws = current['wind_speed_10m'];
+  final units = b?['current_units'];
+  final wsUnit = units is Map<String, Object?> ? units['wind_speed_10m'] : null;
   return WeatherSample(
     tempC: (t as num).toDouble(),
     rhPercent: (rh as num).toDouble(),
     source: WeatherSource.openMeteo,
-    windMps: ws == null ? null : (ws as num).toDouble(),
+    windMps: _openMeteoWindMps(current['wind_speed_10m'], wsUnit),
   );
 }
 
