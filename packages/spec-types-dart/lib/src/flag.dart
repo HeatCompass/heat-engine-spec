@@ -37,7 +37,7 @@ SpecReturn<FlagMappingOutput> flagFromWetBulbF(
       result: null,
       audit: buildAudit(
         fn: 'flagFromWetBulbF',
-        inputs: {'wetBulbF': wetBulbF.isNaN ? 'NaN' : wetBulbF},
+        inputs: {'wetBulbF': auditNumber(wetBulbF)},
         constants: {},
         citation: _citation,
         resultSummary: 'invalid_input:wetBulbF',
@@ -81,7 +81,7 @@ SpecReturn<FlagMappingOutput> flagFromWetBulbC(
       result: null,
       audit: buildAudit(
         fn: 'flagFromWetBulbC',
-        inputs: {'wetBulbC': wetBulbC.isNaN ? 'NaN' : wetBulbC},
+        inputs: {'wetBulbC': auditNumber(wetBulbC)},
         constants: {},
         citation: _citation,
         resultSummary: 'invalid_input:wetBulbC',

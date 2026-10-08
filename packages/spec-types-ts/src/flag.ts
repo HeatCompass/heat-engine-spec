@@ -9,7 +9,7 @@
 // yellow [85, 88), red [88, 90), black ≥ 90.
 
 import type { SpecContext, SpecReturn } from './audit.js';
-import { buildAudit } from './audit.js';
+import { auditNumber, buildAudit } from './audit.js';
 import type {
   EnvironmentalFlag,
   FlagMappingInput,
@@ -46,7 +46,7 @@ export function flagFromWetBulbF(
       result: null,
       audit: buildAudit({
         fn: 'flagFromWetBulbF',
-        inputs: { wetBulbF: Number.isNaN(wetBulbF) ? 'NaN' : wetBulbF },
+        inputs: { wetBulbF: auditNumber(wetBulbF) },
         constants: {},
         citation: CITATION,
         resultSummary: 'invalid_input:wetBulbF',
@@ -90,7 +90,7 @@ export function flagFromWetBulbC(
       result: null,
       audit: buildAudit({
         fn: 'flagFromWetBulbC',
-        inputs: { wetBulbC: Number.isNaN(wetBulbC) ? 'NaN' : wetBulbC },
+        inputs: { wetBulbC: auditNumber(wetBulbC) },
         constants: {},
         citation: CITATION,
         resultSummary: 'invalid_input:wetBulbC',

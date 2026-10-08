@@ -4,7 +4,8 @@
 //   * `undefined`-valued properties are dropped (matches JSON.stringify)
 //   * arrays preserve declared order
 //   * numbers serialized with JavaScript's native `String(n)` (integers as
-//     '5', floats as '1.5'); Dart impl mirrors this convention
+//     '5', floats as '1.5'); Dart impl mirrors this convention. NaN and
+//     ±Infinity are written as the strings "NaN", "Infinity", "-Infinity"
 //   * strings JSON-escaped via the standard JSON.stringify
 //
 // This function is the cross-lang equivalence keystone for the audit
@@ -18,7 +19,9 @@ function serialize(v: unknown): string {
   if (v === null) return 'null';
   if (typeof v === 'string') return JSON.stringify(v);
   if (typeof v === 'number') {
-    if (!Number.isFinite(v)) return JSON.stringify(v);
+    // JSON has no NaN or Infinity; write them as strings, as the Dart
+    // serializer does, instead of JSON.stringify's null.
+    if (!Number.isFinite(v)) return JSON.stringify(String(v));
     return String(v);
   }
   if (typeof v === 'boolean') return v ? 'true' : 'false';
