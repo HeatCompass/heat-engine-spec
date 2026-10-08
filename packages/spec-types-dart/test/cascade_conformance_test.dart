@@ -201,4 +201,62 @@ void main() {
       expect(ret.audit.sourcesTried!.first.error, 'http_404');
     });
   });
+
+  group('windMps is metres per second', () {
+    Future<SpecReturn<CascadeResult>> run(List<CascadeReplayResponse> responses, [List<String>? seen]) {
+      final replay = buildReplayAdapter(responses);
+      return fetchWeatherCascade(
+        const CascadeRequest(lat: 1, lng: 2),
+        SpecContext(
+          clock: () => DateTime.utc(2026, 5, 26, 17),
+          httpAdapter: (HttpRequest req) {
+            seen?.add(req.url);
+            return replay(req);
+          },
+        ),
+      );
+    }
+
+    List<CascadeReplayResponse> nwsWith(Map<String, Object?> windSpeed) => [
+          ..._nwsPointAndStations,
+          CascadeReplayResponse(
+            urlPattern: 'observations/latest',
+            status: 200,
+            bodyJson: {
+              'properties': {
+                'temperature': {'value': 25},
+                'relativeHumidity': {'value': 50},
+                'windSpeed': windSpeed,
+              },
+            },
+          ),
+        ];
+
+    List<CascadeReplayResponse> openMeteoWith(Map<String, Object?> body) => [
+          const CascadeReplayResponse(urlPattern: r'api\.weather\.gov', status: 503, bodyText: 'unavailable'),
+          CascadeReplayResponse(urlPattern: r'api\.open-meteo\.com', status: 200, bodyJson: body),
+        ];
+
+    test('NWS km/h (wmoUnit:km_h-1, also assumed when the unit code is missing) is divided by 3.6', () async {
+      expect((await run(nwsWith({'value': 36, 'unitCode': 'wmoUnit:km_h-1'}))).result!.sample.windMps, 10);
+      expect((await run(nwsWith({'value': 3.1}))).result!.sample.windMps, 3.1 / 3.6);
+    });
+
+    test('NWS m/s is kept, and an unknown unit leaves windMps out', () async {
+      expect((await run(nwsWith({'value': 4, 'unitCode': 'wmoUnit:m_s-1'}))).result!.sample.windMps, 4);
+      expect((await run(nwsWith({'value': 4, 'unitCode': 'wmoUnit:kn'}))).result!.sample.windMps, isNull);
+    });
+
+    test('Open-Meteo is asked for m/s, and a km/h answer is still converted', () async {
+      const current = {'temperature_2m': 20, 'relative_humidity_2m': 50, 'wind_speed_10m': 18};
+      final seen = <String>[];
+      expect((await run(openMeteoWith({'current': current}), seen)).result!.sample.windMps, 18);
+      expect(seen.firstWhere((u) => u.contains('open-meteo')), contains('&wind_speed_unit=ms'));
+      final kmh = await run(openMeteoWith({
+        'current_units': {'wind_speed_10m': 'km/h'},
+        'current': current,
+      }));
+      expect(kmh.result!.sample.windMps, 5);
+    });
+  });
 }

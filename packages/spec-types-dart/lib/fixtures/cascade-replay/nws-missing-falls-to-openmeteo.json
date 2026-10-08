@@ -43,6 +43,7 @@
             "url_pattern": "api\\.open-meteo\\.com/.*",
             "status": 200,
             "body_json": {
+              "current_units": { "wind_speed_10m": "m/s" },
               "current": {
                 "temperature_2m": 21.8,
                 "relative_humidity_2m": 60,

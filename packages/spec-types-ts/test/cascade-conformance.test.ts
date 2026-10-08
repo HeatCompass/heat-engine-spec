@@ -150,3 +150,48 @@ describe('NWS request flow (points → stations → latest observation)', () => 
     expect(audit.sources_tried?.[0]?.error).toBe('http_404');
   });
 });
+
+describe('windMps is metres per second', () => {
+  const run = async (responses: CascadeReplayResponse[], seen: string[] = []) =>
+    fetchWeatherCascade(
+      { lat: 1, lng: 2 },
+      {
+        clock: () => new Date('2026-05-26T17:00:00.000Z'),
+        httpAdapter: (async (req) => {
+          seen.push(req.url);
+          return buildReplayAdapter(responses)(req);
+        }) as HttpAdapter,
+      },
+    );
+  const nwsWith = (windSpeed: Record<string, unknown>): CascadeReplayResponse[] => [
+    ...NWS_POINT_AND_STATIONS,
+    {
+      url_pattern: 'observations/latest',
+      status: 200,
+      body_json: { properties: { temperature: { value: 25 }, relativeHumidity: { value: 50 }, windSpeed } },
+    },
+  ];
+  const openMeteoWith = (body: Record<string, unknown>): CascadeReplayResponse[] => [
+    { url_pattern: 'api\\.weather\\.gov', status: 503, body_text: 'unavailable' },
+    { url_pattern: 'api\\.open-meteo\\.com', status: 200, body_json: body },
+  ];
+
+  it('NWS km/h (wmoUnit:km_h-1, also assumed when the unit code is missing) is divided by 3.6', async () => {
+    expect((await run(nwsWith({ value: 36, unitCode: 'wmoUnit:km_h-1' }))).result?.sample.windMps).toBe(10);
+    expect((await run(nwsWith({ value: 3.1 }))).result?.sample.windMps).toBe(3.1 / 3.6);
+  });
+
+  it('NWS m/s is kept, and an unknown unit leaves windMps out', async () => {
+    expect((await run(nwsWith({ value: 4, unitCode: 'wmoUnit:m_s-1' }))).result?.sample.windMps).toBe(4);
+    expect((await run(nwsWith({ value: 4, unitCode: 'wmoUnit:kn' }))).result?.sample).not.toHaveProperty('windMps');
+  });
+
+  it('Open-Meteo is asked for m/s, and a km/h answer is still converted', async () => {
+    const current = { temperature_2m: 20, relative_humidity_2m: 50, wind_speed_10m: 18 };
+    const seen: string[] = [];
+    expect((await run(openMeteoWith({ current }), seen)).result?.sample.windMps).toBe(18);
+    expect(seen.find((u) => u.includes('open-meteo'))).toContain('&wind_speed_unit=ms');
+    const kmh = await run(openMeteoWith({ current_units: { wind_speed_10m: 'km/h' }, current }));
+    expect(kmh.result?.sample.windMps).toBe(5);
+  });
+});

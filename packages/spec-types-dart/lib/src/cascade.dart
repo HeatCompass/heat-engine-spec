@@ -208,8 +208,9 @@ Future<_SourceTry> _tryOpenMeteo(
   HttpAdapter adapter,
   SpecContext? ctx,
 ) {
+  // Open-Meteo's default wind unit is km/h; ask for m/s, the unit of windMps.
   final url =
-      'https://api.open-meteo.com/v1/forecast?latitude=${_formatLatLng(req.lat)}&longitude=${_formatLatLng(req.lng)}&current=temperature_2m,relative_humidity_2m,wind_speed_10m';
+      'https://api.open-meteo.com/v1/forecast?latitude=${_formatLatLng(req.lat)}&longitude=${_formatLatLng(req.lng)}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&wind_speed_unit=ms';
   return _trySource(
     source: WeatherSource.openMeteo,
     timeoutMs: _openMeteoTimeoutMs,
@@ -340,12 +341,35 @@ Object? _parseNws(Object? body) {
   if (rhVal == null) return const _ParseError('missing_field:relativeHumidity');
   final wsObj = props['windSpeed'];
   final wsVal = wsObj is Map<String, Object?> ? wsObj['value'] : null;
+  final wsUnit = wsObj is Map<String, Object?> ? wsObj['unitCode'] : null;
   return WeatherSample(
     tempC: (tempVal as num).toDouble(),
     rhPercent: (rhVal as num).toDouble(),
     source: WeatherSource.nws,
-    windMps: wsVal == null ? null : (wsVal as num).toDouble(),
+    windMps: _nwsWindMps(wsVal, wsUnit),
   );
+}
+
+const double _kmhPerMps = 3.6;
+
+// NWS gives wind as a WMO-coded quantity; observations use km/h
+// ("wmoUnit:km_h-1"), and a reading without a unit code is taken to be in
+// that unit. A unit this code does not know leaves windMps out rather than
+// mislabel it.
+double? _nwsWindMps(Object? value, Object? unitCode) {
+  if (value is! num) return null;
+  if (unitCode == null || unitCode == 'wmoUnit:km_h-1') return value.toDouble() / _kmhPerMps;
+  if (unitCode == 'wmoUnit:m_s-1') return value.toDouble();
+  return null;
+}
+
+// The request asks for m/s; current_units says what came back. km/h (the
+// service default) is converted, and an unknown unit leaves windMps out.
+double? _openMeteoWindMps(Object? value, Object? unit) {
+  if (value is! num) return null;
+  if (unit == null || unit == 'm/s') return value.toDouble();
+  if (unit == 'km/h') return value.toDouble() / _kmhPerMps;
+  return null;
 }
 
 Object? _parseOpenMeteo(Object? body) {
@@ -356,12 +380,13 @@ Object? _parseOpenMeteo(Object? body) {
   if (t == null) return const _ParseError('missing_field:temperature_2m');
   final rh = current['relative_humidity_2m'];
   if (rh == null) return const _ParseError('missing_field:relative_humidity_2m');
-  final ws = current['wind_speed_10m'];
+  final units = b?['current_units'];
+  final wsUnit = units is Map<String, Object?> ? units['wind_speed_10m'] : null;
   return WeatherSample(
     tempC: (t as num).toDouble(),
     rhPercent: (rh as num).toDouble(),
     source: WeatherSource.openMeteo,
-    windMps: ws == null ? null : (ws as num).toDouble(),
+    windMps: _openMeteoWindMps(current['wind_speed_10m'], wsUnit),
   );
 }
 

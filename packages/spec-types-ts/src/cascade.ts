@@ -184,7 +184,8 @@ async function tryNws(req: CascadeRequest, adapter: HttpAdapter, ctx: SpecContex
 }
 
 async function tryOpenMeteo(req: CascadeRequest, adapter: HttpAdapter, ctx: SpecContext | undefined): Promise<SourceTry> {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${req.lat}&longitude=${req.lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m`;
+  // Open-Meteo's default wind unit is km/h; ask for m/s, the unit of windMps.
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${req.lat}&longitude=${req.lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&wind_speed_unit=ms`;
   return trySource('open-meteo', OPEN_METEO_TIMEOUT_MS, OPEN_METEO_CITATION, adapter, undefined, req, ctx, async (get) =>
     parseOpenMeteo(await get(url)),
   );
@@ -282,8 +283,21 @@ interface NwsBody {
   properties?: {
     temperature?: { value: number | null };
     relativeHumidity?: { value: number | null };
-    windSpeed?: { value: number | null };
+    windSpeed?: { value: number | null; unitCode?: string };
   };
+}
+
+const KMH_PER_MPS = 3.6;
+
+// NWS gives wind as a WMO-coded quantity; observations use km/h
+// ("wmoUnit:km_h-1"), and a reading without a unit code is taken to be in
+// that unit. A unit this code does not know leaves windMps out rather than
+// mislabel it.
+function nwsWindMps(value: number | null | undefined, unitCode: string | undefined): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (unitCode === undefined || unitCode === 'wmoUnit:km_h-1') return value / KMH_PER_MPS;
+  if (unitCode === 'wmoUnit:m_s-1') return value;
+  return undefined;
 }
 
 function parseNws(body: unknown): WeatherSample | { error: string } {
@@ -292,18 +306,28 @@ function parseNws(body: unknown): WeatherSample | { error: string } {
   const rh = b?.properties?.relativeHumidity?.value;
   if (t === null || t === undefined) return { error: 'missing_field:temperature' };
   if (rh === null || rh === undefined) return { error: 'missing_field:relativeHumidity' };
-  const ws = b?.properties?.windSpeed?.value;
+  const ws = nwsWindMps(b?.properties?.windSpeed?.value, b?.properties?.windSpeed?.unitCode);
   const sample: WeatherSample = { tempC: t, rhPercent: rh, source: 'nws' };
-  if (ws !== null && ws !== undefined) sample.windMps = ws;
+  if (ws !== undefined) sample.windMps = ws;
   return sample;
 }
 
 interface OpenMeteoBody {
+  current_units?: { wind_speed_10m?: string };
   current?: {
     temperature_2m?: number;
     relative_humidity_2m?: number;
     wind_speed_10m?: number;
   };
+}
+
+// The request asks for m/s; current_units says what came back. km/h (the
+// service default) is converted, and an unknown unit leaves windMps out.
+function openMeteoWindMps(value: number | null | undefined, unit: string | undefined): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (unit === undefined || unit === 'm/s') return value;
+  if (unit === 'km/h') return value / KMH_PER_MPS;
+  return undefined;
 }
 
 function parseOpenMeteo(body: unknown): WeatherSample | { error: string } {
@@ -312,7 +336,7 @@ function parseOpenMeteo(body: unknown): WeatherSample | { error: string } {
   const rh = b?.current?.relative_humidity_2m;
   if (t === undefined) return { error: 'missing_field:temperature_2m' };
   if (rh === undefined) return { error: 'missing_field:relative_humidity_2m' };
-  const ws = b?.current?.wind_speed_10m;
+  const ws = openMeteoWindMps(b?.current?.wind_speed_10m, b?.current_units?.wind_speed_10m);
   const sample: WeatherSample = { tempC: t, rhPercent: rh, source: 'open-meteo' };
   if (ws !== undefined) sample.windMps = ws;
   return sample;

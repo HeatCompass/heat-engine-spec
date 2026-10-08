@@ -40,7 +40,10 @@ point, so the tier makes three requests:
 2. `GET {observationStations}` → `{ features: [ { properties: { stationIdentifier } }, … ] }`,
    nearest station first.
 3. `GET /stations/{stationIdentifier}/observations/latest` →
-   `{ properties: { temperature: { value }, relativeHumidity: { value }, windSpeed: { value } } }`.
+   `{ properties: { temperature: { value }, relativeHumidity: { value }, windSpeed: { value, unitCode } } }`.
+   Wind is reported in km/h (`unitCode` `wmoUnit:km_h-1`, also assumed when the
+   code is missing) and divided by 3.6 for `windMps`; `wmoUnit:m_s-1` is used as
+   is, and any other unit leaves `windMps` out.
 
 (`/points/{lat},{lng}/observations/latest` does not exist; it returns 404.)
 Requests send a `User-Agent`, which NWS requires (it answers 403 without one).
@@ -51,8 +54,11 @@ timeout 5000ms (default).
 ## cascade-open-meteo
 Open-Meteo forecast API — `api.open-meteo.com`. Cascade tier 2 (worldwide
 coverage, no API key). Endpoint:
-`GET /v1/forecast?latitude={lat}&longitude={lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m`.
-Expected response shape: `{ current: { temperature_2m, relative_humidity_2m, wind_speed_10m } }`.
+`GET /v1/forecast?latitude={lat}&longitude={lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&wind_speed_unit=ms`.
+Expected response shape: `{ current_units: { wind_speed_10m }, current: { temperature_2m, relative_humidity_2m, wind_speed_10m } }`.
+The service's default wind unit is km/h, so the request asks for m/s; a response
+whose `current_units.wind_speed_10m` is `km/h` is still divided by 3.6, and any
+other unit leaves `windMps` out.
 Per-source timeout 5000ms (default).
 
 ## cascade-simulated

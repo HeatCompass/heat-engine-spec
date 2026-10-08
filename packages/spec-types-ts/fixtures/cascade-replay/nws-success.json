@@ -36,14 +36,14 @@
               "properties": {
                 "temperature": { "value": 22.5 },
                 "relativeHumidity": { "value": 58 },
-                "windSpeed": { "value": 3.1 }
+                "windSpeed": { "value": 3.1, "unitCode": "wmoUnit:km_h-1" }
               }
             }
           }
         ]
       },
       "expectedResult": {
-        "sample": { "tempC": 22.5, "rhPercent": 58, "windMps": 3.1, "source": "nws" }
+        "sample": { "tempC": 22.5, "rhPercent": 58, "windMps": 0.8611111111111112, "source": "nws" }
       },
       "expectedAudit": {
         "spec_version": "0.1.1",
