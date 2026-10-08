@@ -5,6 +5,12 @@
 // fall-through, the failed attempt is recorded as a child audit and a
 // SourceAttempt row, and the next tier is attempted.
 //
+// NWS serves observations per station, not per point, so its tier is three
+// requests (https://www.weather.gov/documentation/services-web-api):
+// /points/{lat},{lng} names the point's observation stations, that list
+// starts with the nearest station, and /stations/{id}/observations/latest is
+// its latest observation. A failure at any of the three fails the tier.
+//
 // If both live sources fail, the deterministic simulated sample is
 // returned: { tempC: 20, rhPercent: 50, source: 'simulated' }.
 //
@@ -17,6 +23,12 @@ import { buildAudit } from './audit.js';
 import type { CascadeRequest, CascadeResult, WeatherSample } from './types.js';
 
 const CITATION = 'Cascade order: NWS → Open-Meteo → simulated';
+const NWS_BASE = 'https://api.weather.gov';
+// NWS requires every client to send a User-Agent (it answers 403 without one).
+const NWS_HEADERS: Record<string, string> = {
+  'User-Agent': 'heat-engine-spec (https://github.com/HeatCompass/heat-engine-spec)',
+  Accept: 'application/geo+json',
+};
 const NWS_CITATION = 'api.weather.gov';
 const OPEN_METEO_CITATION = 'api.open-meteo.com';
 const NWS_TIMEOUT_MS = 5000;
@@ -160,64 +172,84 @@ interface SourceTry {
 }
 
 async function tryNws(req: CascadeRequest, adapter: HttpAdapter, ctx: SpecContext | undefined): Promise<SourceTry> {
-  const url = `https://api.weather.gov/points/${req.lat},${req.lng}/observations/latest`;
-  return tryFetch('nws', url, NWS_TIMEOUT_MS, NWS_CITATION, adapter, parseNws, req, ctx);
+  return trySource('nws', NWS_TIMEOUT_MS, NWS_CITATION, adapter, NWS_HEADERS, req, ctx, async (get) => {
+    const point = (await get(`${NWS_BASE}/points/${req.lat},${req.lng}`)) as NwsPointBody;
+    const stationsUrl = point?.properties?.observationStations;
+    if (typeof stationsUrl !== 'string') return { error: 'missing_field:observationStations' };
+    const stations = (await get(stationsUrl)) as NwsStationsBody;
+    const stationId = stations?.features?.[0]?.properties?.stationIdentifier;
+    if (typeof stationId !== 'string') return { error: 'missing_field:stationIdentifier' };
+    return parseNws(await get(`${NWS_BASE}/stations/${encodeURIComponent(stationId)}/observations/latest`));
+  });
 }
 
 async function tryOpenMeteo(req: CascadeRequest, adapter: HttpAdapter, ctx: SpecContext | undefined): Promise<SourceTry> {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${req.lat}&longitude=${req.lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m`;
-  return tryFetch('open-meteo', url, OPEN_METEO_TIMEOUT_MS, OPEN_METEO_CITATION, adapter, parseOpenMeteo, req, ctx);
+  return trySource('open-meteo', OPEN_METEO_TIMEOUT_MS, OPEN_METEO_CITATION, adapter, undefined, req, ctx, async (get) =>
+    parseOpenMeteo(await get(url)),
+  );
 }
 
-async function tryFetch(
+/** A request in a source's chain failed in a way the attempt records by code. */
+class SourceFailure extends Error {
+  readonly code: string;
+  constructor(code: string) {
+    super(code);
+    this.code = code;
+  }
+}
+
+type Get = (url: string) => Promise<unknown>;
+
+async function trySource(
   source: WeatherSource,
-  url: string,
   timeoutMs: number,
   citation: string,
   adapter: HttpAdapter,
-  parser: (body: unknown) => WeatherSample | { error: string },
+  headers: Record<string, string> | undefined,
   req: CascadeRequest,
   ctx: SpecContext | undefined,
+  run: (get: Get) => Promise<WeatherSample | { error: string }>,
 ): Promise<SourceTry> {
-  let attempt: SourceAttempt = { source, status: 'ok', duration_ms: 0 };
+  // One GET of the chain: HTTP >= 400 is http_<status>, an unparsable body is
+  // parse_error, and a timeout or transport error propagates.
+  const get: Get = async (url) => {
+    const res = await adapter(headers ? { url, timeoutMs, headers } : { url, timeoutMs });
+    if (res.status >= 400) throw new SourceFailure(`http_${res.status}`);
+    try {
+      return JSON.parse(res.body) as unknown;
+    } catch {
+      throw new SourceFailure('parse_error');
+    }
+  };
+
+  let attempt: SourceAttempt;
   let sample: WeatherSample | null = null;
-  let summary = `${source} OK in 0ms`;
+  let summary: string;
 
   try {
-    const res = await adapter({ url, timeoutMs });
-    if (res.status >= 400) {
-      attempt = { source, status: 'error', duration_ms: 0, error: `http_${res.status}` };
-      summary = `${source} http_${res.status}`;
+    const out = await run(get);
+    if ('error' in out) {
+      attempt = { source, status: 'error', duration_ms: 0, error: out.error };
+      summary = `${source} ${out.error}`;
     } else {
-      let parsed: unknown = null;
-      let parseFailed = false;
-      try {
-        parsed = JSON.parse(res.body);
-      } catch {
-        parseFailed = true;
-        attempt = { source, status: 'error', duration_ms: 0, error: 'parse_error' };
-        summary = `${source} parse_error`;
-      }
-      if (!parseFailed) {
-        const out = parser(parsed);
-        if ('error' in out) {
-          attempt = { source, status: 'error', duration_ms: 0, error: out.error };
-          summary = `${source} ${out.error}`;
-        } else {
-          sample = out;
-          attempt = { source, status: 'ok', duration_ms: 0 };
-          summary = `${source} OK in 0ms`;
-        }
-      }
+      sample = out;
+      attempt = { source, status: 'ok', duration_ms: 0 };
+      summary = `${source} OK in 0ms`;
     }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg === 'timeout' || msg.toLowerCase().includes('abort')) {
-      attempt = { source, status: 'timeout', duration_ms: timeoutMs, error: 'timeout' };
-      summary = `${source} timeout`;
+    if (e instanceof SourceFailure) {
+      attempt = { source, status: 'error', duration_ms: 0, error: e.code };
+      summary = `${source} ${e.code}`;
     } else {
-      attempt = { source, status: 'error', duration_ms: 0, error: msg };
-      summary = `${source} ${msg}`;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === 'timeout' || msg.toLowerCase().includes('abort')) {
+        attempt = { source, status: 'timeout', duration_ms: timeoutMs, error: 'timeout' };
+        summary = `${source} timeout`;
+      } else {
+        attempt = { source, status: 'error', duration_ms: 0, error: msg };
+        summary = `${source} ${msg}`;
+      }
     }
   }
 
@@ -236,6 +268,14 @@ async function tryFetch(
   });
 
   return { sample, attempt, audit };
+}
+
+interface NwsPointBody {
+  properties?: { observationStations?: unknown };
+}
+
+interface NwsStationsBody {
+  features?: { properties?: { stationIdentifier?: unknown } }[];
 }
 
 interface NwsBody {

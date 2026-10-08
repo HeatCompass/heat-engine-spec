@@ -12,6 +12,24 @@
         "clock_iso": "2026-05-26T17:00:00.000Z",
         "responses": [
           {
+            "url_pattern": "api\\.weather\\.gov/points/",
+            "status": 200,
+            "body_json": {
+              "properties": {
+                "observationStations": "https://api.weather.gov/gridpoints/MTR/85,105/stations"
+              }
+            }
+          },
+          {
+            "url_pattern": "api\\.weather\\.gov/gridpoints/.*/stations$",
+            "status": 200,
+            "body_json": {
+              "features": [
+                { "properties": { "stationIdentifier": "SFOC1" } }
+              ]
+            }
+          },
+          {
             "url_pattern": "api\\.weather\\.gov/.*/observations/latest",
             "status": 500,
             "body_text": "internal server error"

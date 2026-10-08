@@ -30,12 +30,23 @@ Establishes WBGT-based environmental-flag boundaries used for training and opera
 (Boundaries are defined in Fahrenheit; this spec keeps the source unit for flag mapping to avoid float-precision artifacts at boundary edges.)
 
 ## cascade-nws
-National Weather Service observation API — `api.weather.gov`. Cascade tier 1
-(highest authority for US locations). Endpoint:
-`GET /points/{lat},{lng}/observations/latest`. Expected response shape:
-`{ properties: { temperature: { value }, relativeHumidity: { value }, windSpeed: { value } } }`.
-Each value field may be null; cascade treats null as a missing field and
-falls through to the next tier. Per-source timeout 5000ms (default).
+National Weather Service observation API — `api.weather.gov`
+(https://www.weather.gov/documentation/services-web-api). Cascade tier 1
+(highest authority for US locations). Observations are per station, not per
+point, so the tier makes three requests:
+
+1. `GET /points/{lat},{lng}` → `{ properties: { observationStations } }`, the URL
+   of the point's station list.
+2. `GET {observationStations}` → `{ features: [ { properties: { stationIdentifier } }, … ] }`,
+   nearest station first.
+3. `GET /stations/{stationIdentifier}/observations/latest` →
+   `{ properties: { temperature: { value }, relativeHumidity: { value }, windSpeed: { value } } }`.
+
+(`/points/{lat},{lng}/observations/latest` does not exist; it returns 404.)
+Requests send a `User-Agent`, which NWS requires (it answers 403 without one).
+A failure at any step fails the tier. Each value field may be null; cascade
+treats null as a missing field and falls through to the next tier. Per-request
+timeout 5000ms (default).
 
 ## cascade-open-meteo
 Open-Meteo forecast API — `api.open-meteo.com`. Cascade tier 2 (worldwide

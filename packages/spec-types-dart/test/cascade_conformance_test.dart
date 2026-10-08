@@ -6,6 +6,31 @@ import 'package:heat_engine_spec/heat_engine_spec.dart';
 
 DateTime _clockFor(String iso) => DateTime.parse(iso);
 
+// The first two NWS requests (point metadata, then its observation stations),
+// as the replay fixtures give them.
+const _nwsPointAndStations = [
+  CascadeReplayResponse(
+    urlPattern: r'api\.weather\.gov/points/',
+    status: 200,
+    bodyJson: {
+      'properties': {
+        'observationStations': 'https://api.weather.gov/gridpoints/MTR/85,105/stations',
+      },
+    },
+  ),
+  CascadeReplayResponse(
+    urlPattern: r'api\.weather\.gov/gridpoints/.*/stations$',
+    status: 200,
+    bodyJson: {
+      'features': [
+        {
+          'properties': {'stationIdentifier': 'SFOC1'},
+        },
+      ],
+    },
+  ),
+];
+
 HttpAdapter buildReplayAdapter(List<CascadeReplayResponse> responses) {
   return (HttpRequest req) async {
     final match = responses.firstWhere(
@@ -59,6 +84,7 @@ void main() {
   group('cascade input forwarding', () {
     test('passes isoTimestamp through to audit inputs when provided', () async {
       final responses = [
+        ..._nwsPointAndStations,
         const CascadeReplayResponse(
           urlPattern: r'api\.weather\.gov/.*/observations/latest',
           status: 200,
@@ -89,6 +115,90 @@ void main() {
         'lng': 2.0,
         'isoTimestamp': '2026-05-26T16:00:00.000Z',
       });
+    });
+  });
+
+  group('NWS request flow (points → stations → latest observation)', () {
+    const observation = CascadeReplayResponse(
+      urlPattern: r'api\.weather\.gov/stations/[^/]+/observations/latest$',
+      status: 200,
+      bodyJson: {
+        'properties': {
+          'temperature': {'value': 25},
+          'relativeHumidity': {'value': 50},
+        },
+      },
+    );
+    SpecContext ctxWith(List<CascadeReplayResponse> responses, [List<HttpRequest>? seen]) {
+      final replay = buildReplayAdapter(responses);
+      return SpecContext(
+        clock: () => DateTime.utc(2026, 5, 26, 17),
+        httpAdapter: (HttpRequest req) {
+          seen?.add(req);
+          return replay(req);
+        },
+      );
+    }
+
+    test('asks for the point, then its stations, then the first station\'s latest observation', () async {
+      final seen = <HttpRequest>[];
+      final ret = await fetchWeatherCascade(
+        const CascadeRequest(lat: 37.7749, lng: -122.4194),
+        ctxWith([..._nwsPointAndStations, observation], seen),
+      );
+      expect(ret.result?.sample.source, WeatherSource.nws);
+      expect(seen.map((r) => r.url).toList(), [
+        'https://api.weather.gov/points/37.7749,-122.4194',
+        'https://api.weather.gov/gridpoints/MTR/85,105/stations',
+        'https://api.weather.gov/stations/SFOC1/observations/latest',
+      ]);
+      // NWS answers 403 to requests without a User-Agent.
+      for (final r in seen) {
+        expect(r.headers?['User-Agent'], contains('heat-engine-spec'));
+      }
+    });
+
+    test('a point without observationStations fails the NWS tier', () async {
+      final ret = await fetchWeatherCascade(
+        const CascadeRequest(lat: 1, lng: 2),
+        ctxWith(const [
+          CascadeReplayResponse(
+            urlPattern: r'api\.weather\.gov/points/',
+            status: 200,
+            bodyJson: {'properties': <String, Object?>{}},
+          ),
+        ]),
+      );
+      expect(ret.audit.sourcesTried!.first.error, 'missing_field:observationStations');
+    });
+
+    test('an empty station list fails the NWS tier', () async {
+      final ret = await fetchWeatherCascade(
+        const CascadeRequest(lat: 1, lng: 2),
+        ctxWith([
+          _nwsPointAndStations.first,
+          const CascadeReplayResponse(
+            urlPattern: r'api\.weather\.gov/gridpoints/',
+            status: 200,
+            bodyJson: {'features': <Object?>[]},
+          ),
+        ]),
+      );
+      expect(ret.audit.sourcesTried!.first.error, 'missing_field:stationIdentifier');
+    });
+
+    test("an HTTP error on the point request is that tier's error", () async {
+      final ret = await fetchWeatherCascade(
+        const CascadeRequest(lat: 1, lng: 2),
+        ctxWith(const [
+          CascadeReplayResponse(
+            urlPattern: r'api\.weather\.gov/points/',
+            status: 404,
+            bodyText: 'not found',
+          ),
+        ]),
+      );
+      expect(ret.audit.sourcesTried!.first.error, 'http_404');
     });
   });
 }

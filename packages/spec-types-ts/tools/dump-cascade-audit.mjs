@@ -22,6 +22,21 @@ function buildReplay(responses) {
   };
 }
 
+// The NWS tier asks for the point and its observation stations before the
+// latest observation; every scenario below gets the same two answers first.
+const NWS_POINT_AND_STATIONS = [
+  {
+    url_pattern: 'api\\.weather\\.gov/points/',
+    status: 200,
+    body_json: { properties: { observationStations: 'https://api.weather.gov/gridpoints/MTR/85,105/stations' } },
+  },
+  {
+    url_pattern: 'api\\.weather\\.gov/gridpoints/.*/stations$',
+    status: 200,
+    body_json: { features: [{ properties: { stationIdentifier: 'SFOC1' } }] },
+  },
+];
+
 const SCENARIOS = [
   {
     id: 'nws-success',
@@ -155,7 +170,7 @@ const SCENARIOS = [
 ];
 
 for (const scenario of SCENARIOS) {
-  const ctx = { clock: FIXED_CLOCK, httpAdapter: buildReplay(scenario.responses) };
+  const ctx = { clock: FIXED_CLOCK, httpAdapter: buildReplay([...NWS_POINT_AND_STATIONS, ...scenario.responses]) };
   const { result, audit } = await fetchWeatherCascade(scenario.input, ctx);
   process.stdout.write(`=== ${scenario.id} ===\n`);
   process.stdout.write(`result: ${canonicalJson(result)}\n`);
