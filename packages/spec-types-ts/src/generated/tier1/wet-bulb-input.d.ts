@@ -9,7 +9,7 @@ export interface WetBulbInput {
    */
   tempC: number;
   /**
-   * Relative humidity 0-100. Stull (2011) is validated for [5, 99]; implementations MUST clamp inputs to this range.
+   * Relative humidity in percent. Stull (2011) is validated for [5, 99]; implementations MUST clamp inputs to [5, 100] and report a clamped value as clampedRhPct. RH in (99, 100] is computed as given, since 100 % is a real humidity.
    */
   rhPercent: number;
 }

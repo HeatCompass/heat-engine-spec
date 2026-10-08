@@ -1,7 +1,8 @@
 /// Input to the Stull (2011) wet-bulb temperature formula.
 ///
 /// `tempC` is dry-bulb air temperature in °C. Validated for [-20, 50].
-/// `rhPercent` is relative humidity 0-100. Validated for [5, 99].
+/// `rhPercent` is relative humidity in percent. Stull (2011) is validated
+/// for [5, 99]; inputs are clamped to [5, 100] (100 % is a real humidity).
 class WetBulbInput {
   const WetBulbInput({required this.tempC, required this.rhPercent});
 

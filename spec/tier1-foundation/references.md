@@ -10,6 +10,9 @@ DOI: 10.1175/JAMC-D-11-0143.1
 Provides the empirical formula and validity range:
 - Temperature: -20 °C ≤ T ≤ 50 °C
 - Relative humidity: 5% ≤ RH ≤ 99%
+  (Implementations clamp RH to [5, 100], not [5, 99]: 100 % is a real
+  humidity, so RH in (99, 100] is computed as given. See
+  `wet-bulb-input.schema.json`.)
 - Claimed accuracy: ±0.65 °C RMS across this domain
 
 ## stull-2011-cross-check
